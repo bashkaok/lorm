@@ -2,6 +2,8 @@ package org.mikesoft.orm;
 
 import org.mikesoft.orm.entity.JoinTableEntity;
 import org.junit.jupiter.api.*;
+import org.mikesoft.orm.testdata.EmbeddedEntity;
+import org.mikesoft.orm.testdata.MainEntity;
 import org.sqlite.SQLiteErrorCode;
 import org.sqlite.SQLiteException;
 
@@ -12,14 +14,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.logging.LogManager;
 
-import static org.dazlib.config.Prefs.LOG_PROPERTIES_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class DAOImplTest {
     private static DBEnvironment db;
-    private static DAOImpl<MainTestEntity> dao;
-    private static MainTestEntity me = MainTestEntity.builder()
+    private static DAOImpl<MainEntity> dao;
+    private static final MainEntity me = MainEntity.builder()
             .stringField("stringColumn")
             .stringUniqueField("Unique")
             .doubleField(123.123)
@@ -30,13 +31,13 @@ class DAOImplTest {
     @SuppressWarnings("unchecked")
     @BeforeAll
     public static void setUp() throws IOException {
-        InputStream ins = DAOImplTest.class.getClassLoader().getResourceAsStream(LOG_PROPERTIES_NAME.defValue);
+        InputStream ins = DAOImplTest.class.getClassLoader().getResourceAsStream("log.properties");
         LogManager.getLogManager().readConfiguration(ins);
 
         db = new DBEnvironment(DBEnvironment.StandardConnection.MEMORY_CACHE);
         db.setStartMode(DBEnvironment.StartMode.DROP_AND_CREATE);
-        db.initializeEntities(List.of(MainTestEntity.class, EmbeddedEntity.class));
-        dao = (DAOImpl<MainTestEntity>) DAOFactory.createDAO(db.getDataSource(), MainTestEntity.class);
+        db.initializeEntities(List.of(MainEntity.class, EmbeddedEntity.class));
+        dao = (DAOImpl<MainEntity>) DAOFactory.createDAO(db.getDataSource(), MainEntity.class);
         assertNotNull(dao);
         assertEquals(4, db.getGlobal().getDaoSet().size());
     }
@@ -56,7 +57,7 @@ class DAOImplTest {
         assertSame(((SQLiteException) assertThrows(SQLException.class, () -> dao.create(me))
                 .getCause()).getResultCode(), SQLiteErrorCode.SQLITE_CONSTRAINT_PRIMARYKEY);
 
-        MainTestEntity copy = dao.read(me.getId()).orElseThrow();
+        MainEntity copy = dao.read(me.getId()).orElseThrow();
         copy.setId(null);
         assertSame(((SQLiteException) assertThrows(SQLException.class, () -> dao.create(copy))
                 .getCause()).getResultCode(), SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE);
@@ -75,7 +76,7 @@ class DAOImplTest {
     @Order(3)
     void update() throws SQLException {
 
-        MainTestEntity upd = MainTestEntity.builder()
+        MainEntity upd = MainEntity.builder()
                 .stringField("stringColumn")
                 .stringDefaultField("constrain_default")
                 .stringUniqueField("Unique2")
@@ -86,7 +87,7 @@ class DAOImplTest {
         assertEquals(1, dao.create(upd));
         assertNotEquals(-1, upd.getId());
 
-        MainTestEntity expected = MainTestEntity.builder()
+        MainEntity expected = MainEntity.builder()
                 .id(upd.getId())
                 .stringField("updated_stringColumn")
                 .stringDefaultField("constrain_default")
@@ -116,7 +117,7 @@ class DAOImplTest {
     @Test
     @Order(4)
     void refresh() throws SQLException {
-        MainTestEntity refreshed = MainTestEntity.builder().id(me.getId()).build();
+        MainEntity refreshed = MainEntity.builder().id(me.getId()).build();
         assertEquals(1, dao.refresh(refreshed));
         assertEquals(me, refreshed);
     }
@@ -142,19 +143,19 @@ class DAOImplTest {
     @Test
     @Order(6)
     void findAll() throws SQLException {
-        MainTestEntity e1 = MainTestEntity.builder()
+        MainEntity e1 = MainEntity.builder()
                 .stringField("stringColumn1")
                 .stringDefaultField("default1")
                 .stringUniqueField("Unique1")
                 .doubleField(1.0)
                 .booleanField(true).build();
-        MainTestEntity e2 = MainTestEntity.builder()
+        MainEntity e2 = MainEntity.builder()
                 .stringField("stringColumn2")
                 .stringDefaultField("default2")
                 .stringUniqueField("Unique2")
                 .doubleField(200.0)
                 .booleanField(true).build();
-        MainTestEntity e3 = MainTestEntity.builder()
+        MainEntity e3 = MainEntity.builder()
                 .stringField("stringColumn3")
                 .stringDefaultField("default3")
                 .stringUniqueField("Unique3")
@@ -181,19 +182,19 @@ class DAOImplTest {
     @Test
     @Order(8)
     void createAll() throws SQLException {
-        MainTestEntity e1 = MainTestEntity.builder()
+        MainEntity e1 = MainEntity.builder()
                 .id(101)
                 .stringField("Column101")
                 .stringDefaultField("default101")
                 .stringUniqueField("Unique101")
                 .build();
-        MainTestEntity e2 = MainTestEntity.builder()
+        MainEntity e2 = MainEntity.builder()
                 .id(102)
                 .stringField("Column102")
                 .stringDefaultField("default102")
                 .stringUniqueField("Unique102")
                 .build();
-        MainTestEntity e3 = MainTestEntity.builder()
+        MainEntity e3 = MainEntity.builder()
                 .id(103)
                 .stringField("Column103")
                 .stringDefaultField("default103")
@@ -208,21 +209,21 @@ class DAOImplTest {
         dao.deleteAll("id>0");
         assertEquals(0, dao.readAll().count());
 
-        MainTestEntity e1 = MainTestEntity.builder()
+        MainEntity e1 = MainEntity.builder()
                 .id(101)
                 .stringField("Column101")
                 .stringDefaultField("default101")
                 .stringUniqueField("Unique101")
                 .doubleField(0.0)
                 .build();
-        MainTestEntity e2 = MainTestEntity.builder()
+        MainEntity e2 = MainEntity.builder()
                 .id(102)
                 .stringField("Column102")
                 .stringDefaultField("default102")
                 .stringUniqueField("Unique102")
                 .doubleField(0.0)
                 .build();
-        MainTestEntity e3 = MainTestEntity.builder()
+        MainEntity e3 = MainEntity.builder()
                 .id(103)
                 .stringField("Column103")
                 .stringDefaultField("default103")
@@ -239,7 +240,7 @@ class DAOImplTest {
     @Test
     @Order(10)
     void updateField() throws SQLException {
-        MainTestEntity e1 = MainTestEntity.builder()
+        MainEntity e1 = MainEntity.builder()
                 .id(901)
                 .stringField("Column901")
                 .stringDefaultField("default901")
@@ -247,7 +248,7 @@ class DAOImplTest {
                 .doubleField(0.0)
                 .build();
 
-        MainTestEntity e2 = MainTestEntity.builder()
+        MainEntity e2 = MainEntity.builder()
                 .id(902)
                 .stringField("Column902")
                 .stringDefaultField("default902")
@@ -271,7 +272,7 @@ class DAOImplTest {
     @Test
     void joinTable() throws SQLException {
         dao.create(me);
-        DAOImpl<JoinTableEntity<Integer>> joinDao = (DAOImpl<JoinTableEntity<Integer>>) db.getGlobal().getDao("tbl_joined");
+        DAOImpl<JoinTableEntity<Integer>> joinDao = (DAOImpl<JoinTableEntity<Integer>>) db.getGlobal().getDao("join_MainTable_with_EmbeddedTable");
         assertEquals(SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY, ((SQLiteException) assertThrowsExactly(SQLException.class,
                         ()-> joinDao.create(new JoinTableEntity<>(99999, 9999)))
                 .getCause()).getResultCode());

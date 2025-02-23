@@ -1,9 +1,6 @@
 package org.mikesoft.orm;
 
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.extern.java.Log;
 import org.mikesoft.orm.entity.AbstractEntity;
 import org.mikesoft.orm.function.ThrowingConsumer;
 import org.mikesoft.orm.function.ThrowingFunction;
@@ -15,17 +12,17 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-@Getter
-@Log
+@SuppressWarnings({"LombokSetterMayBeUsed", "LombokGetterMayBeUsed"})
 public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
+    protected static Logger log = Logger.getLogger(DAOImpl.class.getName());
     public static final int UNDEF_INT = -1;
     protected final DataSource dataSource;
     protected final EntityProfile profile;
-    @Setter
     private boolean formattedSQLStatement = false;
 
     protected DAOImpl(DataSource dataSource, Class<? extends T> entityClass) {
@@ -42,6 +39,10 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
         return dataSource.getConnection();
     }
 
+    public void setFormattedSQLStatement(boolean formattedSQLStatement) {
+        this.formattedSQLStatement = formattedSQLStatement;
+    }
+
     /**
      * Try-resource wrapper for Connection
      */
@@ -49,6 +50,16 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
         try (var connection = getConnection()) {
             return function.apply(connection);
         }
+    }
+
+    @Override
+    public DataSource getDataSource() {
+        return dataSource;
+    }
+
+    @Override
+    public EntityProfile getProfile() {
+        return profile;
     }
 
     public <R> R doQuery(Connection connection, String sql,
@@ -77,7 +88,7 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
             sqlStatement = "\n" + formatSQLStatement(ps.toString());
             int count = ps.executeUpdate();
             RSWrapper results = new RSWrapper(ps.getGeneratedKeys(), count);
-            log.fine(sqlStatement + (results.getGeneratedKeys().isEmpty() ? "" : " ID=" + results.getGeneratedKeys()));
+            log.fine(sqlStatement + (results.getGeneratedKeys().isEmpty() ? "" : " -> ID=" + results.getGeneratedKeys()));
             return resultMapper.apply(results);
         } catch (SQLException e) {
             log.fine(sqlStatement);
@@ -234,7 +245,6 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
 
     @Override
     public int updateField(Integer id, String fieldName, Object value) throws SQLException {
-        //TODO implementation
         final String STATEMENT = """
                 UPDATE %s
                     SET %s = ?
@@ -351,7 +361,6 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
         }
     }
 
-    @Getter
     public static class RSWrapper {
         private final ResultSet resultSet;
         private final int updateCount;
@@ -372,6 +381,18 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
             }
             this.updateCount = updateCount;
             this.resultSet = null;
+        }
+
+        public ResultSet getResultSet() {
+            return resultSet;
+        }
+
+        public int getUpdateCount() {
+            return updateCount;
+        }
+
+        public List<Object> getGeneratedKeys() {
+            return generatedKeys;
         }
 
         public Optional<Object> getId() {

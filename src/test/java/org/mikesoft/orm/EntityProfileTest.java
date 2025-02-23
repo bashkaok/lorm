@@ -43,7 +43,8 @@ class EntityProfileTest {
         assertEquals("DefaultValuesEntity", p.getTableName());
         //@Id
         assertEquals("idField", p.getIdColumn().getColumnName());
-        // @Column defaults of:
+
+        // @Column defaults
         EntityProfile.Column c = p.getColumnByField("stringField");
         assertEquals("stringField", c.getColumnName());
         assertEquals("", c.getColumnDefinition());
@@ -55,6 +56,9 @@ class EntityProfileTest {
         //c.getTable() not implemented
         assertFalse(c.isUnique());
         assertTrue(c.isUpdatable());
+
+        //@Transient
+        assertNull(p.getColumnByField("finalField"));
 
     }
     /**
@@ -82,41 +86,33 @@ class EntityProfileTest {
         //c.getTable() not implemented
         assertTrue(c.isUnique());
         assertFalse(c.isUpdatable());
+    }
+
+    @Test
+    void manyToMany_default_join() {
+        EntityProfile owner = EntityProfileFactory.createProfile(MainEntity.class);
+        EntityProfile embed = EntityProfileFactory.createProfile(EmbeddedEntity.class);
+        createAndSetJoinTableProfile(owner.getColumnByField("embeddedListDefault"), owner, embed);
+        EntityProfile join = (owner.getColumnByField("embeddedListDefault").getJoinTableProfile());
+
+        assertEquals("MainTable_EmbeddedTable", join.getTableName());
+        assertEquals("MainTable_Id", join.getColumnsByField().get("ownerId").getColumnName());
+        assertEquals("EmbeddedTable_Id", join.getColumnsByField().get("embeddedId").getColumnName());
+        assertEquals(2, join.getForeignKeys().size());
 
     }
 
-
-//        assertEquals(8, ep.getInsertablePrimitiveColumns().count());
-//        assertEquals(7, ep.getUpdatablePrimitiveColumns().count());
-//        assertEquals(2, ep.getManyToManyColumns().count());
-//        assertEquals(255, ep.getColumnsByField().get("unAnnotatedField").getLength());
-
     @Test
-    public void joinTableTest() {
-        EntityProfile owner = EntityProfileFactory.createProfile(MainTestEntity.class);
+    void manyToMany_specified_join() {
+        EntityProfile owner = EntityProfileFactory.createProfile(MainEntity.class);
         EntityProfile embed = EntityProfileFactory.createProfile(EmbeddedEntity.class);
-        //default join table
-        createAndSetJoinTableProfile(owner.getColumnByField("embeddedListDefault"), owner, embed);
-        EntityProfile def = (owner.getColumnByField("embeddedListDefault").getJoinTableProfile());
-        assertEquals("test_table_name_tbl_embedded", def.getTableName());
-        assertEquals("test_table_name_Id", def.getColumnsByField().get("ownerId").getColumnName());
-        assertEquals("tbl_embedded_Id", def.getColumnsByField().get("embeddedId").getColumnName());
-        assertEquals(2, def.getForeignKeys().size());
-
-        //specified join table
         createAndSetJoinTableProfile(owner.getColumnByField("embeddedList"), owner, embed);
         EntityProfile spec = (owner.getColumnByField("embeddedList").getJoinTableProfile());
-        assertEquals("tbl_joined", spec.getTableName());
+
+        assertEquals("join_MainTable_with_EmbeddedTable", spec.getTableName());
         assertEquals("OWNER_ID", spec.getColumnsByField().get("ownerId").getColumnName());
         assertEquals("EMBEDDED_ID", spec.getColumnsByField().get("embeddedId").getColumnName());
         assertEquals(2, spec.getForeignKeys().size());
     }
 
-    @Test
-    void many2manyTest() {
-        EntityProfile owner = EntityProfileFactory.createProfile(MainTestEntity.class);
-        EntityProfile.Column c = owner.getColumnByField("embeddedListDefault");
-        System.out.println(c);
-
-    }
 }

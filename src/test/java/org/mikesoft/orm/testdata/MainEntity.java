@@ -1,11 +1,10 @@
-package org.mikesoft.orm;
+package org.mikesoft.orm.testdata;
 
+import jakarta.persistence.*;
 import lombok.*;
-import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
-import org.dazlib.database.orm.entity.AbstractEntity;
+import org.mikesoft.orm.entity.AbstractEntity;
 
-import javax.persistence.*;
 import java.util.List;
 
 @EqualsAndHashCode(callSuper = true)
@@ -14,10 +13,8 @@ import java.util.List;
 @NoArgsConstructor
 @SuperBuilder
 @Entity
-@Table(name = "test_table_name", uniqueConstraints = {@UniqueConstraint(columnNames = {"stringField", "stringDefaultColumn"})})
-public class MainTestEntity extends AbstractEntity {
-    @Transient
-    private final String finalField = "prohibited";
+@Table(name = "MainTable", uniqueConstraints = {@UniqueConstraint(columnNames = {"stringField", "stringDefaultColumn"})})
+public class MainEntity extends AbstractEntity {
     @Column
     private String stringField;
     @Builder.Default
@@ -33,24 +30,12 @@ public class MainTestEntity extends AbstractEntity {
     private boolean booleanField;
     private String unAnnotatedField;
     @ManyToMany
-    @JoinTable(name = "tbl_joined",
+    @JoinTable(name = "join_MainTable_with_EmbeddedTable",
             joinColumns = {@JoinColumn(name = "OWNER_ID", referencedColumnName = "id")},
-//                    @JoinColumn(name = "refType", columnDefinition = "DEFAULT 1")},
             inverseJoinColumns = @JoinColumn(name = "EMBEDDED_ID", referencedColumnName = "id"))
     List<EmbeddedEntity> embeddedList;
     @ManyToMany
-    @Column(insertable = false)
     List<EmbeddedEntity> embeddedListDefault;
 
 
-}
-
-@EqualsAndHashCode(callSuper = true)
-@Data
-@NoArgsConstructor
-@SuperBuilder
-@Entity
-@Table(name = "tbl_embedded")
-class EmbeddedEntity extends AbstractEntity {
-    private String firstField;
 }

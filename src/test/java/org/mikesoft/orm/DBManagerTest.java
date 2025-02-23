@@ -1,17 +1,19 @@
 package org.mikesoft.orm;
 
 import org.junit.jupiter.api.*;
+import org.mikesoft.orm.testdata.MainEntity;
 import org.sqlite.SQLiteDataSource;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
+import java.util.logging.Level;
 import java.util.logging.LogManager;
+import java.util.logging.Logger;
 
-import static org.dazlib.config.Prefs.LOG_PROPERTIES_NAME;
-import static org.dazlib.database.orm.utils.sqlExWrap;
-import static org.dazlib.database.orm.utils.streamOf;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mikesoft.orm.utils.sqlExWrap;
+import static org.mikesoft.orm.utils.streamOf;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class DBManagerTest {
@@ -20,12 +22,13 @@ class DBManagerTest {
 
     @BeforeAll
     public static void setUp() throws IOException {
-        InputStream ins = DBManagerTest.class.getClassLoader().getResourceAsStream(LOG_PROPERTIES_NAME.defValue);
+        InputStream ins = DBManagerTest.class.getClassLoader().getResourceAsStream("log.properties");
         LogManager.getLogManager().readConfiguration(ins);
+        DBManager.log.setLevel(Level.FINE);
 //        dataSource.setUrl("jdbc:sqlite::memory:");
         dataSource.setUrl("jdbc:sqlite:memory:?cache=shared");
 //        dataSource.setUrl("jdbc:sqlite:file:target/test-data/testdb.sqlite");
-        dao = (DAOImpl<?>) DAOFactory.createDAO(dataSource, MainTestEntity.class);
+        dao = (DAOImpl<?>) DAOFactory.createDAO(dataSource, MainEntity.class);
         DBManager.createTableIfNotExists(dao);
     }
 

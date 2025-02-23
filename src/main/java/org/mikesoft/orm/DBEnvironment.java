@@ -14,6 +14,7 @@ import org.sqlite.javax.SQLiteConnectionPoolDataSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,6 +82,11 @@ public class DBEnvironment {
         entities.forEach(clazz -> global.add(DAOFactory.createDAO(getDataSource(), clazz)));
         initializeJoinTables();
         initEnvironment();
+    }
+
+    @SafeVarargs
+    public final void initializeEntities(final Class<? extends AbstractEntity>... entities) {
+        initializeEntities(Arrays.stream(entities).toList());
     }
 
     private void onCreateTableAction(Class<?> entityClass) {

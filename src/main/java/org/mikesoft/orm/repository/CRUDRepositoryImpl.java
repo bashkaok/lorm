@@ -97,12 +97,12 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
 
     @SuppressWarnings("unchecked")
     @Override
-    public void persist(T entity) {
+    public void persist(T entity) { //TODO rename to "merge" or move to PersistRepository
         if (entity.getId() != null) {
             try {
                 Optional<T> found = get((ID) entity.getId());
                 if (found.isPresent()) {
-                    dao.getProfile().enrich(entity, found.get());
+                    dao.getProfile().enrich(entity, found.get()); //TODO replace on UPDATE of not-null fields
                     update(entity);
                     return;
                 }

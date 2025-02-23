@@ -1,13 +1,15 @@
 package org.mikesoft.orm;
 
 import org.junit.jupiter.api.Test;
+import org.mikesoft.orm.testdata.EmbeddedEntity;
+import org.mikesoft.orm.testdata.MainEntity;
 
-import static org.dazlib.database.orm.EntityProfileFactory.createAndSetJoinTableProfile;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mikesoft.orm.EntityProfileFactory.createAndSetJoinTableProfile;
 
 class StatementBuilderTest {
-    private static EntityProfile ep = EntityProfileFactory.createProfile(MainTestEntity.class);
-    private static EntityProfile embed = EntityProfileFactory.createProfile(EmbeddedEntity.class);
+    private static final EntityProfile ep = EntityProfileFactory.createProfile(MainEntity.class);
+    private static final EntityProfile embed = EntityProfileFactory.createProfile(EmbeddedEntity.class);
     static {
         createAndSetJoinTableProfile(ep.getColumnByField("embeddedListDefault"), ep, embed);
     }
@@ -23,23 +25,23 @@ class StatementBuilderTest {
     @Test
     void buildCreateTableStatement() {
         String st = StatementBuilder.buildCreateStatement(ep, true);
-        System.out.println(st);
+//        System.out.println(st);
         assertTrue(st.contains("UNIQUE(\"stringField\",\"stringDefaultColumn\""));
     }
 
     @Test
     void buildCreateTableStatement_with_FOREIGNKEY() {
         String st = StatementBuilder.buildCreateStatement(ep.getColumnByField("embeddedListDefault").getJoinTableProfile(), true);
-        System.out.println(st);
-        assertTrue(st.contains("FOREIGN KEY (\"test_table_name_Id\") REFERENCES test_table_name (\"id\") ON DELETE CASCADE"));
-        assertTrue(st.contains("FOREIGN KEY (\"tbl_embedded_Id\") REFERENCES tbl_embedded (\"id\") ON DELETE CASCADE"));
+//        System.out.println(st);
+        assertTrue(st.contains("FOREIGN KEY (\"MainTable_Id\") REFERENCES MainTable (\"id\") ON DELETE CASCADE"));
+        assertTrue(st.contains("FOREIGN KEY (\"EmbeddedTable_Id\") REFERENCES EmbeddedTable (\"id\") ON DELETE CASCADE"));
     }
 
 
     @Test
     void buildUpdateStatement() {
         String st = StatementBuilder.buildUpdateStatement(ep);
-        System.out.println(st);
+//        System.out.println(st);
         assertFalse(st.contains("id"));
         assertEquals(ep.getUpdatablePrimitiveColumns().count(), st.chars().filter(ch -> ch == '?').count());
     }
@@ -47,7 +49,7 @@ class StatementBuilderTest {
     @Test
     void buildUpdateByIdStatement() {
         String st = StatementBuilder.buildUpdateByIdStatement(ep);
-        System.out.println(st);
+//        System.out.println(st);
         assertEquals(ep.getUpdatablePrimitiveColumns().count()+1, st.chars().filter(ch -> ch == '?').count());
     }
 

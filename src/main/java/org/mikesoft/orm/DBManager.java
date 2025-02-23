@@ -6,13 +6,15 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static org.mikesoft.orm.utils.sqlExWrap;
 import static org.mikesoft.orm.utils.streamOf;
 
-@Log
 public class DBManager {
+    protected static Logger log = Logger.getLogger(DBManager.class.getName());
     public static boolean createTableIfNotExists(DAO<?, ?> dao) {
         DAOImpl<?> baseDao = (DAOImpl<?>) dao;
         String createStatement = buildStatement(dao.getProfile(), StatementType.CREATE, true);
