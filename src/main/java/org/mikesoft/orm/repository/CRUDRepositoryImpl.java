@@ -1,0 +1,200 @@
+package org.mikesoft.orm.repository;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.extern.java.Log;
+import org.mikesoft.orm.DAO;
+import org.mikesoft.orm.DAOException;
+import org.mikesoft.orm.entity.AbstractEntity;
+
+import jakarta.persistence.UniqueConstraint;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import static org.mikesoft.orm.DAOException.onSQLError;
+
+
+@Getter
+@Setter
+@Log
+public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRepository<T, ID> {
+    protected final DAO<T, ID> dao;
+    protected OrmRepoContainer global = null;
+
+    public CRUDRepositoryImpl(DAO<T, ID> dao) {
+        this.dao = dao;
+    }
+
+    @Override
+    public void add(T entity) throws DAOException {
+        try {
+            dao.create(entity);
+        } catch (SQLException e) {
+            throw onSQLError(e, entity, log);
+        }
+    }
+
+    @Override
+    public void addAll(List<T> entity) throws DAOException {
+        try {
+            dao.createAll(entity);
+        } catch (SQLException e) {
+            throw onSQLError(e, entity, log);
+        }
+    }
+
+    @Override
+    public Optional<T> get(ID id) throws DAOException {
+        try {
+            return dao.read(id);
+        } catch (SQLException e) {
+            throw onSQLError(e, null, log);
+        }
+    }
+
+    @Override
+    public Optional<T> get(T entity) {
+        try {
+            return dao.read(entity);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Stream<T> getAll() {
+        try {
+            return dao.readAll();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void update(T entity) throws DAOException {
+        if (entity.getId() == null)
+            throw new IllegalArgumentException("Wrong ID for update. Expected not null ID for entity " + entity);
+        try {
+            dao.update(entity);
+        } catch (SQLException e) {
+            throw onSQLError(e, entity, log);
+        }
+    }
+
+    @Override
+    public void addOrUpdate(T entity) {
+        try {
+            if (entity.getId() == null) {
+                add(entity);
+            } else update(entity);
+        } catch (DAOException e) {
+            log.warning("Record already exists: " + e.getCauseEntity());
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void persist(T entity) {
+        if (entity.getId() != null) {
+            try {
+                Optional<T> found = get((ID) entity.getId());
+                if (found.isPresent()) {
+                    dao.getProfile().enrich(entity, found.get());
+                    update(entity);
+                    return;
+                }
+            } catch (DAOException e) {
+                if (e.getErrorCode() != DAOException.ErrorCode.RECORD_NOT_FOUND)
+                    throw new RuntimeException(e);
+            }
+        }
+
+        //searching by unique key fields
+        T found = dao.getProfile().getUniquePrimitiveColumns()
+                .filter(column -> !column.isId())
+                .filter(column -> column.getValue(entity) != null)
+                .map(column -> findByUnique(column.getColumnName(), column.getValue(entity)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+//                .peek(r-> System.out.println("Found unique field: " + r))
+                .findAny()
+                //searching by unique constraints
+                .orElseGet(() -> dao.getProfile().getUniqueConstraints().stream()
+                        .map(UniqueConstraint::columnNames)
+                        .map(columns -> findByUnique(columns, dao.getProfile().getValues(columns, entity)))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+//                        .peek(r-> System.out.println("Found unique constraint: " + r))
+                        .findAny().orElse(null)
+                );
+
+        try {
+            if (found == null) add(entity);
+            else {
+                entity.setId(found.getId());
+                dao.getProfile().enrich(entity, found);
+                update(entity);
+            }
+        } catch (DAOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void delete(ID id) throws DAOException {
+        try {
+            dao.delete(id);
+        } catch (SQLException e) {
+            throw onSQLError(e, null, log);
+        }
+    }
+
+    @Override
+    public void deleteAll(String whereClause, Object... args) {
+        try {
+            dao.deleteAll(whereClause, args);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void refresh(T entity) throws DAOException {
+        try {
+            if (dao.refresh(entity) == 0)
+                throw new DAOException("Record not found", null, DAOException.ErrorCode.RECORD_NOT_FOUND, entity);
+        } catch (SQLException e) {
+            throw onSQLError(e, null, log);
+        }
+    }
+
+    @Override
+    public Optional<T> findByUnique(String columnName, Object value) {
+        try {
+            return dao.findByUnique(columnName, value);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Optional<T> findByUnique(String[] columnNames, Object... values) {
+        try {
+            return dao.findByUnique(columnNames, values);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public List<T> findAll(String whereClause, Object... args) {
+        try {
+            return dao.findAll(whereClause, args);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
