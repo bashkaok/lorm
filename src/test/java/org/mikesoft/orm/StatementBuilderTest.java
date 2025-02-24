@@ -24,14 +24,14 @@ class StatementBuilderTest {
 
     @Test
     void buildCreateTableStatement() {
-        String st = StatementBuilder.buildCreateStatement(ep, true);
+        String st = StatementBuilder.buildCreateTableStatement(ep, true);
 //        System.out.println(st);
         assertTrue(st.contains("UNIQUE(\"stringField\",\"stringDefaultColumn\""));
     }
 
     @Test
     void buildCreateTableStatement_with_FOREIGNKEY() {
-        String st = StatementBuilder.buildCreateStatement(ep.getColumnByField("embeddedListDefault").getJoinTableProfile(), true);
+        String st = StatementBuilder.buildCreateTableStatement(ep.getColumnByField("embeddedListDefault").getJoinTableProfile(), true);
 //        System.out.println(st);
         assertTrue(st.contains("FOREIGN KEY (\"MainTable_Id\") REFERENCES MainTable (\"id\") ON DELETE CASCADE"));
         assertTrue(st.contains("FOREIGN KEY (\"EmbeddedTable_Id\") REFERENCES EmbeddedTable (\"id\") ON DELETE CASCADE"));
@@ -56,6 +56,17 @@ class StatementBuilderTest {
     @Test
     void buildReadByEntityStatement() {
         String st = StatementBuilder.buildReadByEntityStatement(ep);
-        System.out.println(st);
+//        System.out.println(st);
+        ep.getCreateTableColumns()
+                .filter(column-> !column.isId())
+                .map(EntityProfile.Column::getColumnName)
+//                .peek(System.out::println)
+                .forEach(columnName-> assertTrue(st.contains(columnName)));
+    }
+
+    @Test
+    void buildDropTableStatement() {
+        assertEquals("DROP TABLE MainTable", StatementBuilder.buildDropTableStatement(ep, false));
+        assertEquals("DROP TABLE IF EXISTS MainTable", StatementBuilder.buildDropTableStatement(ep, true));
     }
 }

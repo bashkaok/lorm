@@ -39,7 +39,7 @@ class EntityProfileTest {
     @Test
     void default_column_values() {
         EntityProfile p = EntityProfileFactory.createProfile(DefaultValuesEntity.class);
-        assertEquals(3, p.getColumns().size());
+        assertEquals(4, p.getColumns().size());
         assertEquals("DefaultValuesEntity", p.getTableName());
         //@Id
         assertEquals("idField", p.getIdColumn().getColumnName());
@@ -47,18 +47,22 @@ class EntityProfileTest {
         // @Column defaults
         EntityProfile.Column c = p.getColumnByField("stringField");
         assertEquals("stringField", c.getColumnName());
-        assertEquals("", c.getColumnDefinition());
+        assertEquals("", c.getColumnAnnotation().columnDefinition());
         assertTrue(c.isInsertable());
-        assertEquals(255, c.getLength());
+        assertEquals(255, c.getColumnAnnotation().length());
         assertTrue(c.isNullable());
         //c.getPrecision() not implemented
         //c.getScale() not implemented
         //c.getTable() not implemented
         assertFalse(c.isUnique());
         assertTrue(c.isUpdatable());
+        assertEquals(new EntityProfileFactory.ColumnAnnotation("stringField"), c.getColumnAnnotation());
 
         //@Transient
         assertNull(p.getColumnByField("finalField"));
+
+        //UnAnnotated
+        assertEquals(new EntityProfileFactory.ColumnAnnotation("unAnnotatedField"), p.getColumn("unAnnotatedField").getColumnAnnotation());
 
     }
     /**
@@ -77,9 +81,9 @@ class EntityProfileTest {
         //@Column(name = "String")
         EntityProfile.Column c = p.getColumnByField("stringField");
         assertEquals("String", c.getColumnName());
-        assertEquals("DEFAULT 0", c.getColumnDefinition());
+        assertEquals("DEFAULT 0", c.getColumnAnnotation().columnDefinition());
         assertFalse(c.isInsertable());
-        assertEquals(10, c.getLength());
+        assertEquals(10, c.getColumnAnnotation().length());
         assertFalse(c.isNullable());
         //c.getPrecision() not implemented
         //c.getScale() not implemented

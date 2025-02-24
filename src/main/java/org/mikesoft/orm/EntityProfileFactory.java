@@ -31,6 +31,42 @@ public class EntityProfileFactory {
         return ep;
     }
 
+    public static void parseColumnAnnotation(EntityProfile.Column column) {
+        assertOnFinal(column.getField());
+        Column annotation = column.getField().getDeclaredAnnotation(Column.class);
+        if (annotation == null) {
+            column.setColumnAnnotation(new EntityProfileFactory.ColumnAnnotation(column.getFieldName()));
+            return;
+        }
+        column.setColumnAnnotation(new EntityProfileFactory.ColumnAnnotation(annotation.columnDefinition(),
+                annotation.insertable(),
+                annotation.length(),
+                getOrElse(annotation.name(), column.getFieldName()),
+                annotation.nullable(),
+                annotation.precision(),
+                annotation.scale(),
+                annotation.table(),
+                annotation.unique(),
+                annotation.updatable()));
+    }
+
+    private static void assertOnFinal(Field field) {
+        if(field.accessFlags().contains(AccessFlag.FINAL) &&
+                        field.getDeclaredAnnotation(Transient.class) == null)
+            throw new IllegalArgumentException("The field declared as final should be marked by @Transient " + field.getName());
+    }
+
+    /**
+     *
+     * @return value, if value is not null and not empty(String), else - default value
+     */
+    static <T> T getOrElse(T value, T defaultValue) {
+        if (value == null) return defaultValue;
+        if (value instanceof String && ((String) value).isEmpty()) return defaultValue;
+        return value;
+    }
+
+
     private static void parsePersistenceTable(EntityProfile ep, Class<?> entityClass) {
         Table jpaTable = entityClass.getDeclaredAnnotation(Table.class);
         if (jpaTable == null) {
@@ -49,7 +85,7 @@ public class EntityProfileFactory {
                 .filter(column -> !column.isTransientColumn())
                 .peek(column -> {
                     if (column.isId()) ep.setIdColumn(column);
-                    column.getField().setAccessible(true);
+                    column.getField().setAccessible(true); //TODO Replace by handler
                     column.setOrder(order.incrementAndGet());
                 })
                 .forEach(column -> {
@@ -181,6 +217,27 @@ public class EntityProfileFactory {
                     : joinTable.inverseJoinColumns()[0].referencedColumnName();
         }
 
+
+    }
+
+    public record ColumnAnnotation(String columnDefinition,
+                                   boolean insertable,
+                                   int length,
+                                   String name,
+                                   boolean nullable,
+                                   int precision,
+                                   int scale,
+                                   String table,
+                                   boolean unique,
+                                   boolean updatable) {
+
+        public ColumnAnnotation(String name) {
+            this("", true, 255, name, true, 0, 0, "", false, true);
+        }
+
+        public static ColumnAnnotation getDefault() {
+            return new ColumnAnnotation("", true, 255, "", true, 0, 0, "", false, true);
+        }
 
     }
 }

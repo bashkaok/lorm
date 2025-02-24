@@ -83,13 +83,9 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
     @Override
     public Optional<T> load(ID id) {
         T entity;
-        try {
-            Optional<T> result = crud.get(id);
-            if (result.isEmpty()) return result;
-            entity = result.get();
-        } catch (DAOException e) {
-            throw new RuntimeException(e);
-        }
+        Optional<T> result = crud.get(id);
+        if (result.isEmpty()) return result;
+        entity = result.get();
         loadEmbedded(entity);
         return Optional.of(entity);
     }
@@ -102,13 +98,7 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
                 try {
                     List<JoinTableEntity<ID>> joined = joinCrud.findAllEmbedded((ID) entity.getId());
                     List<?> embedded = joined.stream()
-                            .map(joinEntity -> {
-                                try {
-                                    return embedCrud.get(joinEntity.getEmbeddedId());
-                                } catch (DAOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            })
+                            .map(joinEntity -> embedCrud.get(joinEntity.getEmbeddedId()))
                             .filter(Optional::isPresent)
                             .map(Optional::get)
                             .toList();
@@ -155,7 +145,7 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
 
     @Override
     public void persist(T entity) {
-        crud.persist(entity);
+        crud.merge(entity);
         dao.getProfile().getManyToManyColumns().forEach(column -> {
             persistColumn(entity, column);
         });
@@ -188,7 +178,7 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
             throw new IllegalArgumentException("Try update record in non-updatable column: " + column.getColumnName());
         }
         if (column.isInsertable() && column.isUpdatable())
-            embedCrud.persist(embeddedEntity);
+            embedCrud.merge(embeddedEntity);
         else {
             try {
                 embedCrud.refresh(embeddedEntity);

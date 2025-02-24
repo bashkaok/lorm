@@ -15,6 +15,7 @@ public class DefaultValuesEntity {
     private int token;
     @Transient
     private final String finalField = "prohibited";
+    private String unAnnotatedField;
 
 
 }

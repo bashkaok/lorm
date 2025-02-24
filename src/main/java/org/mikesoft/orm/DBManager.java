@@ -1,29 +1,29 @@
 package org.mikesoft.orm;
 
-import lombok.extern.java.Log;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
+import static org.mikesoft.orm.StatementBuilder.buildCreateTableStatement;
+import static org.mikesoft.orm.StatementBuilder.buildDropTableStatement;
 import static org.mikesoft.orm.utils.sqlExWrap;
 import static org.mikesoft.orm.utils.streamOf;
 
 public class DBManager {
     protected static Logger log = Logger.getLogger(DBManager.class.getName());
-    public static boolean createTableIfNotExists(DAO<?, ?> dao) {
+
+    public static void createTableIfNotExists(DAO<?, ?> dao) {
         DAOImpl<?> baseDao = (DAOImpl<?>) dao;
-        String createStatement = buildStatement(dao.getProfile(), StatementType.CREATE, true);
+        String createStatement = buildCreateTableStatement(dao.getProfile(), true);
         try {
             log.info("Create table: " + dao.getProfile().getTableName());
-            return baseDao.withConnection(connection -> {
-                log.fine(createStatement);
+            baseDao.withConnection(connection -> {
                 baseDao.doUpdate(connection, createStatement);
-                return tableExists(connection, dao.getProfile().getTableName());
+                return null;
             });
         } catch (SQLException e) {
             log.warning("Create table error: " + dao.getProfile().getTableName() + "\n" + createStatement);
@@ -31,16 +31,15 @@ public class DBManager {
         }
     }
 
-    public static boolean dropTableIfExists(DAO<?, ?> dao) {
+    public static void dropTableIfExists(DAO<?, ?> dao) {
         DAOImpl<?> baseDao = (DAOImpl<?>) dao;
-        String dropStatement = buildStatement(dao.getProfile(), StatementType.DROP, true);
+        String dropStatement = buildDropTableStatement(dao.getProfile(), true);
         try {
             log.info("Drop table: " + dao.getProfile().getTableName());
-            return baseDao.withConnection(connection -> {
+            baseDao.withConnection(connection ->
                 baseDao.doUpdate(connection, dropStatement, ps -> {
-                }, DAOImpl.RSWrapper::getGeneratedKeys);
-                return !tableExists(connection, dao.getProfile().getTableName());
-            });
+                }, DAOImpl.RSWrapper::getGeneratedKeys)
+            );
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -70,7 +69,7 @@ public class DBManager {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        String generated = StatementBuilder.buildCreateStatement(dao.getProfile(), false);
+        String generated = StatementBuilder.buildCreateTableStatement(dao.getProfile(), false);
         log.fine("\nFrom DB:\n" + fromDB + "\nGenerated:\n" + generated);
         return fromDB.equalsIgnoreCase(generated);
 
@@ -86,12 +85,6 @@ public class DBManager {
         }
     }
 
-    public static String buildStatement(EntityProfile profile, StatementType type, boolean ifNotExists) {
-        return switch (type) {
-            case CREATE -> StatementBuilder.buildCreateStatement(profile, ifNotExists);
-            case DROP -> "DROP TABLE IF EXISTS %s".formatted(profile.getTableName());
-        };
-    }
 
     public static boolean tableExists(DAOImpl<?> dao) {
         try {
@@ -99,9 +92,5 @@ public class DBManager {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public enum StatementType {
-        CREATE, DROP
     }
 }

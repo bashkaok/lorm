@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class StatementBuilder {
+    private static final Dialect dialect = new SQLiteDialect();
 
     public static String buildUpdateStatement(EntityProfile profile) {
         StringBuilder builder = new StringBuilder("UPDATE ");
@@ -50,7 +51,7 @@ public class StatementBuilder {
     /**
      * @see <a href=https://www.sqlite.org/lang_createtable.html>SQLite CREATE</a>
      */
-    public static String buildCreateStatement(EntityProfile profile, boolean ifNotExists) {
+    public static String buildCreateTableStatement(EntityProfile profile, boolean ifNotExists) {
         List<String> statement = new ArrayList<>();
         String header = "CREATE TABLE " + (ifNotExists ? "IF NOT EXISTS " : "") + profile.getTableName();
         profile.getCreateTableColumns().forEach(column -> statement.add(buildField(column)));
@@ -68,6 +69,12 @@ public class StatementBuilder {
         return header + "(\n" + String.join(",\n", statement) + "\n)";
     }
 
+    public static String buildDropTableStatement(EntityProfile profile, boolean ifExists) {
+        return "DROP TABLE " +
+                (ifExists ? "IF EXISTS " : "") +
+                profile.getTableName();
+    }
+
     private static String inQuotes(String str) {
         return "\"" + str + "\"";
     }
@@ -75,27 +82,14 @@ public class StatementBuilder {
     private static String buildField(EntityProfile.Column column) {
         StringBuilder builder = new StringBuilder();
         builder.append('"').append(column.getColumnName()).append('"').append("\t");
-        if (column.getColumnDefinition().isEmpty()) {
-            builder.append(typeJava2Sqlite(column.getTargetJavaType().getSimpleName()));
-        } else builder.append(column.getColumnDefinition());
+        if (column.getColumnAnnotation().columnDefinition().isEmpty()) {
+            builder.append(dialect.getDataType(column.getTargetJavaType().getTypeName()));
+        } else builder.append(column.getColumnAnnotation().columnDefinition());
         builder.append(column.isId() ? " PRIMARY KEY" : "");
         builder.append(column.getGenerationType() != null ? " AUTOINCREMENT" : "");
         builder.append(column.isNullable() ? "" : " NOT NULL");
         builder.append(column.isUnique() ? " UNIQUE" : "");
         return builder.toString();
-    }
-
-    /**
-     * @see <a href=https://www.sqlite.org/datatype3.html#affinity>SQLite types</a>
-     */
-    private static String typeJava2Sqlite(String type) {
-        return
-                switch (type) {
-                    case "String" -> "TEXT";
-                    case "int", "Integer", "long", "Long", "boolean", "Boolean" -> "INTEGER";
-                    case "double", "float" -> "REAL";
-                    default -> "";
-                };
     }
 
     public static String buildReadByEntityStatement(EntityProfile profile) {

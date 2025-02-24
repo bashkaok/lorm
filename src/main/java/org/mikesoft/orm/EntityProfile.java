@@ -13,7 +13,7 @@ import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static org.mikesoft.orm.EntityProfileFactory.findNoArgsConstructor;
+import static org.mikesoft.orm.EntityProfileFactory.*;
 
 
 @Getter
@@ -122,7 +122,7 @@ public class EntityProfile {
 
     public Object[] getValues(String[] columns, Object entity) {
         Object[] result = new Object[columns.length];
-        for (int i=0; i<columns.length; i++) {
+        for (int i = 0; i < columns.length; i++) {
             result[i] = getColumn(columns[i]).getValue(entity);
         }
         return result;
@@ -136,6 +136,7 @@ public class EntityProfile {
     }
 
     //TODO Refactoring: move annotation parsers to EntityProfileFactory
+    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"})
     @ToString
     @Getter
     @Setter
@@ -156,20 +157,14 @@ public class EntityProfile {
         private boolean manyToManyOwner = false;
         private boolean fetchEager = false;
         //javax.persistence.Column
+        private EntityProfileFactory.ColumnAnnotation columnAnnotation;
         private String columnName;
-        private boolean insertable = true;
-        private boolean updatable = true;
-        private boolean unique = false;
-        private boolean nullable = true;
-        private String columnDefinition = "";
-        private int length = 255;
-
 
         public Column(Field field) {
             this.field = field;
             this.targetJavaType = field.getType();
             parseAnnotations();
-            if (!isTransientColumn() && columnName == null) parsePersistenceColumn(null);
+            parseColumnAnnotation(this);
         }
 
         private void parseAnnotations() {
@@ -181,10 +176,8 @@ public class EntityProfile {
                         generationType = GenerationType.AUTO;
                     }
                     case GeneratedValue value -> generationType = value.strategy();
-                    case jakarta.persistence.Column column -> parsePersistenceColumn(column);
                     case ManyToMany manyToMany -> parsePersistenceManyToMany(manyToMany);
-                    default -> {
-                    }
+                    default -> {}
                 }
             }
         }
@@ -198,19 +191,8 @@ public class EntityProfile {
             primitive = false;
         }
 
-        private void parsePersistenceColumn(jakarta.persistence.Column jpaColumn) {
-            if (jpaColumn == null) {
-                columnName = field.getName();
-                return;
-            }
-            columnName = jpaColumn.name().isEmpty() ? field.getName() : jpaColumn.name();
-            insertable = jpaColumn.insertable();
-            updatable = jpaColumn.updatable();
-            unique = jpaColumn.unique();
-            nullable = jpaColumn.nullable();
-            columnDefinition = jpaColumn.columnDefinition();
-            length = jpaColumn.length();
-
+        public String getColumnName() {
+            return getOrElse(columnName, columnAnnotation.name());
         }
 
         public String getFieldName() {
@@ -237,6 +219,29 @@ public class EntityProfile {
             return Collection.class.isAssignableFrom(getField().getType());
         }
 
+        public void setColumnAnnotation(EntityProfileFactory.ColumnAnnotation columnAnnotation) {
+            this.columnAnnotation = columnAnnotation;
+        }
+
+        public EntityProfileFactory.ColumnAnnotation getColumnAnnotation() {
+            return columnAnnotation;
+        }
+
+        public boolean isInsertable() {
+            return getColumnAnnotation().insertable();
+        }
+
+        public boolean isNullable() {
+            return getColumnAnnotation().nullable();
+        }
+
+        public boolean isUnique() {
+            return getColumnAnnotation().unique();
+        }
+
+        public boolean isUpdatable() {
+            return getColumnAnnotation().updatable();
+        }
     }
 
     public record ForeignKey(String referenceTable,
@@ -245,9 +250,10 @@ public class EntityProfile {
                              String keyDefinition) {
         public ForeignKey(String referenceTable,
                           String[] columns,
-                          String[] referenceColumns){
-            this(referenceTable, columns,referenceColumns, "");
+                          String[] referenceColumns) {
+            this(referenceTable, columns, referenceColumns, "");
         }
     }
+
 }
 

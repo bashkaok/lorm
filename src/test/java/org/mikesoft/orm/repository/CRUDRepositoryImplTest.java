@@ -27,6 +27,7 @@ public class CRUDRepositoryImplTest {
         SQLiteConnectionPoolDataSource dataSource = new SQLiteConnectionPoolDataSource();
         dataSource.setUrl("jdbc:sqlite:memory:&cache=shared");
         db = new DBEnvironment(DBEnvironment.StandardConnection.MEMORY_CACHE);
+//        db = new DBEnvironment(DBEnvironment.StandardConnection.FILE_CURRENT_PATH);
         db.setStartMode(DBEnvironment.StartMode.DROP_AND_CREATE);
         db.initializeEntities(MainEntity.class, EmbeddedEntity.class);
         crud = (CRUDRepositoryImpl<MainEntity, Integer>) db.getGlobal().getCrudRepository(MainEntity.class);
@@ -86,52 +87,100 @@ public class CRUDRepositoryImplTest {
 
         @Test
         @Order(3)
-        void get_by_ID() throws DAOException {//TODO Remove exception
+        void get_by_ID() {
             assertEquals(expected, crud.get(expected.getId()).orElseThrow());
         }
 
-/*
         @Test
-        @Order(2)
+        @Order(4)
+        void get_by_entity() {
+            //TODO Wrong "=" operator in SQL for NULL operands
+            assertEquals(expected, crud.get(expected).orElse(null));
+        }
+
+        @Test
+        @Order(5)
+        void getAll() {
+            assertEquals(4, crud.getAll().count());
+        }
+
+
+        @Test
+        @Order(6)
         public void update() throws DAOException {
-            PackageEntity entity1 = PackageEntity.builder()
-                    .fileName("FileName1_update")
-                    .filePath("FilePath_path1")
-                    .installed(false)
-                    .productId(100)
+            MainEntity e1 = MainEntity.builder()
+                    .stringField("stringColumn6")
+                    .stringUniqueField("UpdateTest")
+                    .stringDefaultField("DEFAULT")
+                    .doubleField(123.123)
+                    .floatField(345.345F)
+                    .booleanField(true)
                     .build();
+            crud.add(e1);
+            assertTrue(e1.getId() > 0);
 
-            PackageEntity entity2 = PackageEntity.builder()
-                    .fileName("FileName2_update")
-                    .filePath("FilePath_path2")
-                    .installed(true)
-                    .productId(200)
-                    .build();
+            e1.setStringDefaultField("default");
+            e1.setUnAnnotatedField("unAnnotated");
+            crud.update(e1);
 
-            repo.add(entity1);
-            assertNotEquals(-1, entity1.getId());
-            repo.add(entity2);
-            assertNotEquals(-1, entity2.getId());
-
-            entity1.setFileName("FileName1_updated");
-            entity1.setFilePath("FilePath_updated");
-            entity1.setInstalled(true);
-            entity1.setProductId(150);
-            repo.update(entity1);
-            assertEquals(entity1, repo.get(entity1.getId()).orElseThrow());
-
-            var entity1persist = repo.get(entity1.getId()).orElseThrow();
-            entity1.setFileName("FileName2_update");
-            assertEquals(DAOException.ErrorCode.RECORD_EXISTS,
-                    assertThrowsExactly(DAOException.class, () -> repo.update(entity1)).getErrorCode());
-            assertEquals(entity1persist, repo.get(entity1.getId()).orElseThrow());
+            assertEquals(e1, crud.get(e1.getId()).orElseThrow());
         }
-/*
+
         @Test
-        @Order(3)
-        public void getPackage() throws DAOException {
-            assertEquals(expected, repo.get(expected.getId()).orElseThrow());
+        @Order(7)
+        public void addOrUpdate() throws DAOException {
+            MainEntity e1 = MainEntity.builder()
+                    .stringField("stringColumn7")
+                    .stringUniqueField("addOrUpdateTest")
+                    .stringDefaultField("DEFAULT")
+                    .doubleField(123.123)
+                    .floatField(345.345F)
+                    .booleanField(true)
+                    .build();
+            crud.addOrUpdate(e1);
+            assertTrue(e1.getId() > 0);
+
+            e1.setStringDefaultField("default");
+            e1.setUnAnnotatedField("unAnnotated");
+            crud.addOrUpdate(e1);
+            assertEquals(e1, crud.get(e1.getId()).orElseThrow());
+
+            MainEntity e2 = MainEntity.builder()
+                    .id(e1.getId())
+                    .stringField("stringColumn7")
+                    .stringUniqueField("addOrUpdateTest")
+                    .stringDefaultField("DEFAULT")
+                    .doubleField(123.123)
+                    .floatField(345.345F)
+                    .booleanField(true)
+                    .build();
+            crud.addOrUpdate(e2);
+            assertEquals(e1.getId(),e2.getId());
+            assertNotEquals(e1,e2);
         }
+
+        @Test
+        void merge() throws DAOException {
+            MainEntity entity = MainEntity.builder()
+                    .stringField("Field_merge")
+                    .stringUniqueField("mergeTest")
+                    .stringDefaultField("DEFAULT-FIELD")
+                    .doubleField(123.123)
+                    .build();
+            crud.add(entity);
+            assertTrue(entity.getId() > 0);
+
+            MainEntity merge = MainEntity.builder()
+                    .id(entity.getId())
+                    .unAnnotatedField("UnAnnotated")
+                    .build();
+            crud.merge(merge);
+            assertEquals(merge.getUnAnnotatedField(), crud.get(entity.getId()).orElseThrow().getUnAnnotatedField());
+            assertEquals(entity.getStringDefaultField(), crud.get(entity.getId()).orElseThrow().getStringDefaultField()); //TODO incorrect default field from builder
+
+        }
+
+/*
 
         @Test
         @Order(4)
@@ -160,22 +209,13 @@ public class CRUDRepositoryImplTest {
         }
 */
     }
-
+/*
     @Test
-    void persist() throws DAOException {
-        MainEntity entity = MainEntity.builder()
-                .id(456)
-                .stringUniqueField("Unique1")
-                .stringField("Field1")
-                .stringDefaultField("DEFAULT")
-                .doubleField(123.123)
-                .build();
-        crud.persist(entity);
-        assertEquals(entity, crud.get(456).orElseThrow());
+    void merge() throws DAOException {
 
         //find by unique stringUniqueField
         entity.setId(null);
-        crud.persist(entity);
+        crud.merge(entity);
         assertEquals(entity, crud.get(456).orElseThrow());
 
         //find by constraint stringField:stringDefaultField
@@ -184,14 +224,16 @@ public class CRUDRepositoryImplTest {
                 .stringField("Field1")
                 .stringDefaultField("DEFAULT")
                 .build();
-        crud.persist(entity1);
+        crud.merge(entity1);
 
         entity1.setDoubleField(null);
         assertNotEquals(entity, entity1);
-        crud.persist(entity1);
+        crud.merge(entity1);
         assertEquals(entity, entity1);
 
 
 
     }
+
+ */
 }

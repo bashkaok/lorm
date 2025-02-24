@@ -9,9 +9,9 @@ import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
-import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mikesoft.orm.StatementBuilder.buildCreateTableStatement;
 import static org.mikesoft.orm.utils.sqlExWrap;
 import static org.mikesoft.orm.utils.streamOf;
 
@@ -39,15 +39,18 @@ class DBManagerTest {
     @Test
     @Order(1)
     void dropTableIfExists() {
-        assertTrue(DBManager.createTableIfNotExists(dao));
-        assertTrue(DBManager.dropTableIfExists(dao));
+        DBManager.createTableIfNotExists(dao);
+        assertTrue(DBManager.tableExists(dao));
+        DBManager.dropTableIfExists(dao);
+        assertFalse(DBManager.tableExists(dao));
     }
 
     @Test
     @Order(2)
     void createTableIfNotExists() {
-        assertTrue(DBManager.dropTableIfExists(dao));
-        assertTrue(DBManager.createTableIfNotExists(dao));
+        DBManager.dropTableIfExists(dao);
+        assertFalse(DBManager.tableExists(dao));
+        DBManager.createTableIfNotExists(dao);
         assertTrue(DBManager.tableExists(dao));
     }
 
@@ -70,13 +73,13 @@ class DBManagerTest {
 
     @Test
     public void getCreateStatement_from_DB() throws SQLException {
-        assertTrue(DBManager.createTableIfNotExists(dao));
+        DBManager.createTableIfNotExists(dao);
         String fromDB;
         try (var connection = dataSource.getConnection()) {
             fromDB = DBManager.getCreateStatement(connection, dao.getProfile().getTableName());
             assertFalse(fromDB.isEmpty());
         }
-        assertEquals(fromDB, DBManager.buildStatement(dao.getProfile(), DBManager.StatementType.CREATE, false));
+        assertEquals(fromDB, buildCreateTableStatement(dao.getProfile(), false));
     }
 
     @Test

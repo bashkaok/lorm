@@ -11,12 +11,16 @@ import java.util.stream.Stream;
 public interface CRUDRepository<T extends AbstractEntity, ID> extends Repository<T,ID> {
     void add(T entity) throws DAOException;
     void addAll(List<T> entity)  throws DAOException;
-    Optional<T> get(ID id) throws DAOException;
+    Optional<T> get(ID id);
     Optional<T> get(T entity);
     Stream<T> getAll();
     void update(T entity) throws DAOException;
-    void addOrUpdate(T entity);
-    void persist(T entity);
+    void addOrUpdate(T entity) throws DAOException;
+
+    /**
+     * Adds to store record not-null fields from entity
+     */
+    void merge(T entity);
     void delete(ID id) throws DAOException;
     void deleteAll(String whereClause, Object...args);
     void refresh(T entity) throws DAOException;

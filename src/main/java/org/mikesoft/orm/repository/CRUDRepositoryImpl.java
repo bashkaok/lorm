@@ -8,6 +8,7 @@ import org.mikesoft.orm.DAOException;
 import org.mikesoft.orm.entity.AbstractEntity;
 
 import jakarta.persistence.UniqueConstraint;
+
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
@@ -46,11 +47,11 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
     }
 
     @Override
-    public Optional<T> get(ID id) throws DAOException {
+    public Optional<T> get(ID id) {
         try {
             return dao.read(id);
         } catch (SQLException e) {
-            throw onSQLError(e, null, log);
+            throw new RuntimeException(e);
         }
     }
 
@@ -83,21 +84,20 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public void addOrUpdate(T entity) {
-        try {
-            if (entity.getId() == null) {
-                add(entity);
-            } else update(entity);
-        } catch (DAOException e) {
-            log.warning("Record already exists: " + e.getCauseEntity());
-            throw new RuntimeException(e);
+    public void addOrUpdate(T entity) throws DAOException {
+        if (entity.getId() == null) {
+            add(entity);
+            return;
         }
+        if (get((ID) entity.getId()).isEmpty()) add(entity);
+        else update(entity);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public void persist(T entity) { //TODO rename to "merge" or move to PersistRepository
+    public void merge(T entity) {
         if (entity.getId() != null) {
             try {
                 Optional<T> found = get((ID) entity.getId());
@@ -123,12 +123,12 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
                 .findAny()
                 //searching by unique constraints
                 .orElseGet(() -> dao.getProfile().getUniqueConstraints().stream()
-                        .map(UniqueConstraint::columnNames)
-                        .map(columns -> findByUnique(columns, dao.getProfile().getValues(columns, entity)))
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
+                                .map(UniqueConstraint::columnNames)
+                                .map(columns -> findByUnique(columns, dao.getProfile().getValues(columns, entity)))
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
 //                        .peek(r-> System.out.println("Found unique constraint: " + r))
-                        .findAny().orElse(null)
+                                .findAny().orElse(null)
                 );
 
         try {
