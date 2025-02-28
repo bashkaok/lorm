@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.mikesoft.orm.testdata.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mikesoft.orm.EntityProfileFactory.createAndSetJoinTableProfile;
 
 class EntityProfileTest {
     @Test
@@ -43,6 +42,7 @@ class EntityProfileTest {
         assertEquals("DefaultValuesEntity", p.getTableName());
         //@Id
         assertEquals("idField", p.getIdColumn().getColumnName());
+        assertEquals(int.class, p.getIdColumn().getTargetJavaType());
 
         // @Column defaults
         EntityProfile.Column c = p.getColumnByField("stringField");
@@ -65,6 +65,58 @@ class EntityProfileTest {
         assertEquals(new EntityProfileFactory.ColumnAnnotation("unAnnotatedField"), p.getColumn("unAnnotatedField").getColumnAnnotation());
 
     }
+
+    @Test
+    void generic_entity() {
+        EntityProfile p = EntityProfileFactory.createProfile(GenericEntity.class);
+        assertEquals(3, p.getColumns().size());
+        assertEquals(Object.class, p.getIdColumn().getTargetJavaType());
+        assertEquals(Object.class, p.getColumnByField("ownerId").getTargetJavaType());
+        assertEquals(Object.class, p.getColumnByField("embeddedId").getTargetJavaType());
+    }
+
+    @Test
+    void generic_entity_subclass() {
+        GenericEntitySubClass g = new GenericEntitySubClass(1,1);
+        EntityProfile p = EntityProfileFactory.createProfile(GenericEntitySubClass.class);
+        assertEquals(3, p.getColumns().size());
+        assertEquals(Object.class, p.getIdColumn().getTargetJavaType());
+        assertEquals(Object.class, p.getColumnByField("ownerId").getTargetJavaType());
+        assertEquals(Object.class, p.getColumnByField("embeddedId").getTargetJavaType());
+    }
+
+
+    @Test
+    void default_column_values_from_subclass() {
+        EntityProfile p = EntityProfileFactory.createProfile(DefaultValuesEntitySubClass.class);
+        assertEquals(4, p.getColumns().size());
+        assertEquals("DefaultValuesEntitySubClass", p.getTableName());
+        //@Id
+        assertEquals("idField", p.getIdColumn().getColumnName());
+        assertEquals(int.class, p.getIdColumn().getTargetJavaType());
+
+        // @Column defaults
+        EntityProfile.Column c = p.getColumnByField("stringField");
+        assertEquals("stringField", c.getColumnName());
+        assertEquals("", c.getColumnAnnotation().columnDefinition());
+        assertTrue(c.isInsertable());
+        assertEquals(255, c.getColumnAnnotation().length());
+        assertTrue(c.isNullable());
+        //c.getPrecision() not implemented
+        //c.getScale() not implemented
+        //c.getTable() not implemented
+        assertFalse(c.isUnique());
+        assertTrue(c.isUpdatable());
+        assertEquals(new EntityProfileFactory.ColumnAnnotation("stringField"), c.getColumnAnnotation());
+
+        //@Transient
+        assertNull(p.getColumnByField("finalField"));
+
+        //UnAnnotated
+        assertEquals(new EntityProfileFactory.ColumnAnnotation("unAnnotatedField"), p.getColumn("unAnnotatedField").getColumnAnnotation());
+
+    }
+
     /**
      * <a href=https://jakarta.ee/specifications/persistence/2.2/apidocs/javax/persistence/column#columnDefinition()>@Column</a>
      */
@@ -96,7 +148,7 @@ class EntityProfileTest {
     void manyToMany_default_join() {
         EntityProfile owner = EntityProfileFactory.createProfile(MainEntity.class);
         EntityProfile embed = EntityProfileFactory.createProfile(EmbeddedEntity.class);
-        createAndSetJoinTableProfile(owner.getColumnByField("embeddedListDefault"), owner, embed);
+        owner.getColumnByField("embeddedListDefault").join(embed);
         EntityProfile join = (owner.getColumnByField("embeddedListDefault").getJoinTableProfile());
 
         assertEquals("MainTable_EmbeddedTable", join.getTableName());
@@ -110,7 +162,7 @@ class EntityProfileTest {
     void manyToMany_specified_join() {
         EntityProfile owner = EntityProfileFactory.createProfile(MainEntity.class);
         EntityProfile embed = EntityProfileFactory.createProfile(EmbeddedEntity.class);
-        createAndSetJoinTableProfile(owner.getColumnByField("embeddedList"), owner, embed);
+        owner.getColumnByField("embeddedList").join(embed);
         EntityProfile spec = (owner.getColumnByField("embeddedList").getJoinTableProfile());
 
         assertEquals("join_MainTable_with_EmbeddedTable", spec.getTableName());

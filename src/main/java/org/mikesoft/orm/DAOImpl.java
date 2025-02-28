@@ -1,7 +1,6 @@
 package org.mikesoft.orm;
 
 
-import org.mikesoft.orm.entity.AbstractEntity;
 import org.mikesoft.orm.function.ThrowingConsumer;
 import org.mikesoft.orm.function.ThrowingFunction;
 
@@ -17,20 +16,22 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static org.mikesoft.orm.StatementBuilder.buildReadByEntityStatement;
+
 @SuppressWarnings({"LombokSetterMayBeUsed", "LombokGetterMayBeUsed"})
-public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
+public class DAOImpl<T, ID> implements DAO<T, ID> {
     protected static Logger log = Logger.getLogger(DAOImpl.class.getName());
     public static final int UNDEF_INT = -1;
     protected final DataSource dataSource;
     protected final EntityProfile profile;
     private boolean formattedSQLStatement = false;
 
-    protected DAOImpl(DataSource dataSource, Class<? extends T> entityClass) {
+    public DAOImpl(DataSource dataSource, Class<? extends T> entityClass) {
         this.dataSource = dataSource;
         this.profile = EntityProfileFactory.createProfile(entityClass);
     }
 
-    protected DAOImpl(DataSource dataSource, EntityProfile entityProfile) {
+    public DAOImpl(DataSource dataSource, EntityProfile entityProfile) {
         this.dataSource = dataSource;
         this.profile = entityProfile;
     }
@@ -141,11 +142,11 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
     }
 
     @Override
-    public Optional<T> read(Integer id) throws SQLException {
+    public Optional<T> read(ID id) throws SQLException {
         return withConnection(connection -> read(connection, id));
     }
 
-    private Optional<T> read(Connection connection, Integer id) {
+    private Optional<T> read(Connection connection, ID id) {
         final String statement = """
                 SELECT * FROM %s
                 WHERE %s=?
@@ -153,7 +154,7 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
         return read(connection, statement, id);
     }
 
-    protected Optional<T> read(Connection connection, String sqlStatement, Integer id) {
+    protected Optional<T> read(Connection connection, String sqlStatement, ID id) {
         return doQuery(connection, sqlStatement, ps -> setPreparedStatementValue(ps, 1, id),
                 rsWrapper -> rsWrapper.stream()
                         .findFirst()
@@ -162,9 +163,12 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
     }
 
     @Override
-    public Optional<T> read(T entity) throws SQLException {
+    public Optional<T> readByEntity(T entity) throws SQLException {
+        final String statement = getProfile().getStatement("READ_BY_ENTITY") == null ?
+                buildReadByEntityStatement(getProfile(), entity)
+                : getProfile().getStatement("READ_BY_ENTITY");
         return withConnection(connection ->
-                doQuery(connection, getProfile().getStatement("READ_BY_ENTITY"),
+                doQuery(connection, statement ,
                         ps -> {
                             int i = 1;
                             for (var value : getProfile().getCreateTableColumns()
@@ -244,7 +248,7 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
     }
 
     @Override
-    public int updateField(Integer id, String fieldName, Object value) throws SQLException {
+    public int updateField(ID id, String fieldName, Object value) throws SQLException {
         final String STATEMENT = """
                 UPDATE %s
                     SET %s = ?
@@ -258,7 +262,7 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
     }
 
     @Override
-    public int delete(Integer id) throws SQLException {
+    public int delete(ID id) throws SQLException {
         final String DELETE = """
                 DELETE FROM %s WHERE id = ?
                 """.formatted(profile.getTableName());
@@ -279,10 +283,11 @@ public class DAOImpl<T extends AbstractEntity> implements DAO<T, Integer> {
                 RSWrapper::getUpdateCount));
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public int refresh(T entity) throws SQLException {
         return withConnection(connection ->
-                read(connection, (Integer) profile.getIdValue(entity))
+                read(connection, (ID) profile.getIdValue(entity))
                         .map(found -> {
                             profile.copy(found, entity);
                             return 1;

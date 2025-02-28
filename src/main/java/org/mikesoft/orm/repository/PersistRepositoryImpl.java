@@ -4,13 +4,12 @@ import lombok.Getter;
 import org.mikesoft.orm.DAO;
 import org.mikesoft.orm.DAOException;
 import org.mikesoft.orm.EntityProfile;
-import org.mikesoft.orm.entity.AbstractEntity;
 import org.mikesoft.orm.entity.JoinTableEntity;
 
 import java.util.*;
 
 @Getter
-public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements PersistRepository<T, ID> {
+public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
     private final DAO<?, ?> dao;
     private final CRUDRepository<T, ID> crud;
     private OrmRepoContainer global;
@@ -26,43 +25,45 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
         crud.add(entity);
         dao.getProfile().getManyToManyColumns().forEach(column -> {
             if (column.isCollection()) {
-                CRUDRepository<AbstractEntity, ?> embedCrud = (CRUDRepository<AbstractEntity, ?>) global.getCrudRepository(column.getTargetJavaType());
-                CRUDRepository<AbstractEntity, ?> joinCrud = (CRUDRepository<AbstractEntity, ?>) global.getCrudRepository(column.getJoinTableProfile().getTableName());
+                CRUDRepository<?, ?> embedCrud = global.getCrudRepository(column.getTargetJavaType());
+                JoinCRUDRepositoryImpl<?, ?> joinCrud = (JoinCRUDRepositoryImpl<?, ?>) global.getCrudRepository(column.getJoinTableProfile().getTableName());
 
                 ((Collection<?>) column.getValue(entity))
                         .forEach(embeddedEntity -> {
                             if (column.isInsertable())
-                                saveEmbeddedEntity(embedCrud, (AbstractEntity) embeddedEntity);
-                            JoinTableEntity<?> joinEntity = createJoinTableEntity(entity, (AbstractEntity) embeddedEntity,
-                                    ((JoinCRUDRepositoryImpl<?>) joinCrud).getDao().getProfile());
+                                saveEmbeddedEntity(embedCrud, embeddedEntity);
+                            JoinTableEntity<?> joinEntity = createJoinTableEntity(entity, embeddedEntity,
+                                    ((CRUDRepositoryImpl<?,?>)embedCrud).getDao().getProfile(),
+                                     joinCrud.getDao().getProfile());
                             addJoinTableEntity(joinCrud, joinEntity);
                         });
             }
         });
     }
 
-    private void saveEmbeddedEntity(CRUDRepository<AbstractEntity, ?> crud, AbstractEntity entity) {
+    private void saveEmbeddedEntity(CRUDRepository<?, ?> crud, Object entity) {
         try {
-            crud.add(entity);
+            ((CRUDRepositoryImpl<Object,?>)crud).add(entity);
         } catch (DAOException e) {
             throw new RuntimeException(e.getMessage() + ": " + e.getCauseEntity(), e);
         }
     }
 
-    private JoinTableEntity<?> createJoinTableEntity(AbstractEntity ownerEntity, AbstractEntity embeddedEntity, EntityProfile entityProfile) {
+    private JoinTableEntity<?> createJoinTableEntity(Object ownerEntity, Object embeddedEntity, EntityProfile embeddedProfile, EntityProfile joinProfile) {
         Object ownerJoinFieldValue = dao.getProfile().getColumnByField("id").getValue(ownerEntity);
-        Object embedJoinFieldValue = dao.getProfile().getColumnByField("id").getValue(embeddedEntity);
+        Object embedJoinFieldValue = embeddedProfile.getColumnByField("id").getValue(embeddedEntity);
         if (embedJoinFieldValue == null)
             throw new IllegalArgumentException("Unexpected ID=null in embedded entity " + embeddedEntity.getClass());
         JoinTableEntity<?> joinTableEntity = new JoinTableEntity<>(ownerJoinFieldValue, embedJoinFieldValue);
         //for DAOException message
-        joinTableEntity.setProfile(entityProfile);
+        joinTableEntity.setProfile(joinProfile);
         return joinTableEntity;
     }
 
-    private static void addJoinTableEntity(CRUDRepository<AbstractEntity, ?> joinCrud, JoinTableEntity<?> joinTableEntity) {
+    @SuppressWarnings("unchecked")
+    private static void addJoinTableEntity(CRUDRepository<?, ?> joinCrud, JoinTableEntity<?> joinTableEntity) {
         try {
-            joinCrud.add(joinTableEntity);
+            ((JoinCRUDRepository<JoinTableEntity<?>,?>)joinCrud).add(joinTableEntity);
         } catch (DAOException e) {
             if (e.getErrorCode() == DAOException.ErrorCode.RECORD_EXISTS) return;
             throw new RuntimeException(e);
@@ -72,9 +73,7 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
     @Override
     public void saveOrUpdate(T entity) {
         try {
-            if (entity.getId() == null) {
-                save(entity);
-            } else update(entity);
+            crud.addOrUpdate(entity);
         } catch (DAOException e) {
             throw new RuntimeException(e);
         }
@@ -91,12 +90,13 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
     }
 
     private void loadEmbedded(T entity) {
+/*
         dao.getProfile().getManyToManyColumns().forEach(column -> {
             if (column.isCollection() && column.isFetchEager()) {
                 CRUDRepository<?, ID> embedCrud = (CRUDRepository<?, ID>) global.getCrudRepository(column.getTargetJavaType());
                 JoinCRUDRepository<ID> joinCrud = (JoinCRUDRepository<ID>) global.getCrudRepository(column.getJoinTableProfile().getTableName());
                 try {
-                    List<JoinTableEntity<ID>> joined = joinCrud.findAllEmbedded((ID) entity.getId());
+                    List<JoinTableEntity<ID>> joined = joinCrud.findAllEmbedded((ID) dao.getProfile().getIdValue(entity));
                     List<?> embedded = joined.stream()
                             .map(joinEntity -> embedCrud.get(joinEntity.getEmbeddedId()))
                             .filter(Optional::isPresent)
@@ -111,26 +111,29 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
                 }
             }
         });
+*/
     }
 
     @Override
     public void update(T entity) throws DAOException {
+/*
         crud.update(entity);
         for (EntityProfile.Column column : dao.getProfile().getManyToManyColumns().toList()) {
             if (column.isCollection()) {
-                CRUDRepository<AbstractEntity, ?> embedCrud = (CRUDRepository<AbstractEntity, ?>) global.getCrudRepository(column.getTargetJavaType());
-                JoinCRUDRepository<ID> joinCrud = (JoinCRUDRepository<ID>) global.getCrudRepository(column.getJoinTableProfile().getTableName());
+                CRUDRepository<?, ID> embedCrud = (CRUDRepository<?, ID>) global.getCrudRepository(column.getTargetJavaType());
+                JoinCRUDRepository<?, ID> joinCrud = (JoinCRUDRepository<?, ID>) global.getCrudRepository(column.getJoinTableProfile().getTableName());
 
-                joinCrud.deleteAllEmbedded((ID) entity.getId());
+                joinCrud.deleteAllEmbedded((ID) dao.getProfile().getIdValue(entity));
                 for (Object embeddedEntity : ((Collection<?>) column.getValue(entity))) {
                     if (column.isUpdatable())
-                        embedCrud.update((AbstractEntity) embeddedEntity);
-                    JoinTableEntity<?> joinEntity = createJoinTableEntity(entity, (AbstractEntity) embeddedEntity,
-                            ((JoinCRUDRepositoryImpl<?>) joinCrud).getDao().getProfile());
+                        embedCrud.update(embeddedEntity);
+                    JoinTableEntity<?> joinEntity = createJoinTableEntity(entity, embeddedEntity,
+                            ((JoinCRUDRepositoryImpl<?,?>) joinCrud).getDao().getProfile());
                     addJoinTableEntity(joinCrud, joinEntity);
                 }
             }
         }
+*/
     }
 
     @Override
@@ -152,6 +155,7 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
     }
 
     private void persistColumn(T entity, EntityProfile.Column column) {
+/*
         if (column.isCollection()) {
             CRUDRepository<AbstractEntity, ?> embedCrud = (CRUDRepository<AbstractEntity, ?>) global.getCrudRepository(column.getTargetJavaType());
             CRUDRepository<AbstractEntity, ?> joinCrud = (CRUDRepository<AbstractEntity, ?>) global.getCrudRepository(column.getJoinTableProfile().getTableName());
@@ -159,18 +163,19 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
             ((Collection<?>) column.getValue(entity))
                     .forEach(embeddedEntity -> {
                         persistEmbeddedEntity(column, embedCrud, (AbstractEntity) embeddedEntity);
-                        JoinTableEntity<?> joinTableEntity = createJoinTableEntity(entity,
+                        JoinTableEntity<?> joinTableEntity = createJoinTableEntity((AbstractEntity) entity,
                                 (AbstractEntity) embeddedEntity,
                                 ((JoinCRUDRepositoryImpl<?>) joinCrud).getDao().getProfile());
                         addJoinTableEntity(joinCrud, joinTableEntity);
                     });
         }
+*/
     }
 
     private static void persistEmbeddedEntity(EntityProfile.Column column,
-                                              CRUDRepository<AbstractEntity, ?> embedCrud,
-                                              AbstractEntity embeddedEntity) {
-
+                                              CRUDRepository<?, ?> embedCrud,
+                                              Object embeddedEntity) {
+/*
         if (!column.isInsertable() && embeddedEntity.getId() == null) {
             throw new IllegalArgumentException("Try add record in non-insertable column: " + column.getColumnName());
         }
@@ -186,5 +191,8 @@ public class PersistRepositoryImpl<T extends AbstractEntity, ID> implements Pers
                 throw new RuntimeException(e);
             }
         }
+
+
+ */
     }
 }

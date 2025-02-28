@@ -1,7 +1,7 @@
 package org.mikesoft.orm;
 
-import org.mikesoft.orm.entity.JoinTableEntity;
 import org.junit.jupiter.api.*;
+import org.mikesoft.orm.entity.JoinTableEntityIntID;
 import org.mikesoft.orm.testdata.EmbeddedEntity;
 import org.mikesoft.orm.testdata.MainEntity;
 import org.sqlite.SQLiteErrorCode;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class DAOImplTest {
     private static DBEnvironment db;
-    private static DAOImpl<MainEntity> dao;
+    private static DAOImpl<MainEntity, Integer> dao;
     private static final MainEntity me = MainEntity.builder()
             .stringField("stringColumn")
             .stringUniqueField("Unique")
@@ -37,7 +37,7 @@ class DAOImplTest {
         db = new DBEnvironment(DBEnvironment.StandardConnection.MEMORY_CACHE);
         db.setStartMode(DBEnvironment.StartMode.DROP_AND_CREATE);
         db.initializeEntities(List.of(MainEntity.class, EmbeddedEntity.class));
-        dao = (DAOImpl<MainEntity>) DAOFactory.createDAO(db.getDataSource(), MainEntity.class);
+        dao = (DAOImpl<MainEntity, Integer>) DAOFactory.createDAO(db.getDataSource(), MainEntity.class);
         assertNotNull(dao);
         assertEquals(4, db.getGlobal().getDaoSet().size());
     }
@@ -272,17 +272,18 @@ class DAOImplTest {
     @Test
     void joinTable() throws SQLException {
         dao.create(me);
-        DAOImpl<JoinTableEntity<Integer>> joinDao = (DAOImpl<JoinTableEntity<Integer>>) db.getGlobal().getDao("join_MainTable_with_EmbeddedTable");
+        DAOImpl<JoinTableEntityIntID, Integer> joinDao = (DAOImpl<JoinTableEntityIntID, Integer>) db.getGlobal().getDao("join_MainTable_with_EmbeddedTable");
         assertEquals(SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY, ((SQLiteException) assertThrowsExactly(SQLException.class,
-                        ()-> joinDao.create(new JoinTableEntity<>(99999, 9999)))
+                        ()-> joinDao.create(new JoinTableEntityIntID(99999, 9999)))
                 .getCause()).getResultCode());
         assertEquals(SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY, ((SQLiteException) assertThrowsExactly(SQLException.class,
-                ()-> joinDao.create(new JoinTableEntity<>(me.getId(), 9999)))
+                ()-> joinDao.create(new JoinTableEntityIntID(me.getId(), 9999)))
                 .getCause()).getResultCode());
-        DAOImpl<EmbeddedEntity> embedDao = (DAOImpl<EmbeddedEntity>) db.getGlobal().getDao(EmbeddedEntity.class);
+//        DAOImpl<EmbeddedEntity, Integer> embedDao = (DAOImpl<EmbeddedEntity, Integer>) db.getGlobal().getDao(EmbeddedEntity.class);
+        DAO<EmbeddedEntity, Integer> embedDao = (DAO<EmbeddedEntity, Integer>) db.getGlobal().getDao(EmbeddedEntity.class);
         EmbeddedEntity embed = EmbeddedEntity.builder().firstField("Wow").build();
         assertEquals(1,embedDao.create(embed));
-        joinDao.create(new JoinTableEntity<>(me.getId(), embed.getId()));
+        joinDao.create(new JoinTableEntityIntID(me.getId(), embed.getId()));
         assertEquals(1, joinDao.findAll("OWNER_ID=?", me.getId()).size());
         assertEquals(1, embedDao.delete(embed.getId()));
         assertEquals(0, joinDao.findAll("OWNER_ID=?", me.getId()).size());

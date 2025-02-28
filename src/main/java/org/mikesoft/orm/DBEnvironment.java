@@ -3,8 +3,7 @@ package org.mikesoft.orm;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.java.Log;
-import org.mikesoft.orm.entity.AbstractEntity;
-import org.mikesoft.orm.entity.JoinTableEntity;
+import org.mikesoft.orm.entity.JoinTableEntityIntID;
 import org.mikesoft.orm.repository.CRUDRepositoryImpl;
 import org.mikesoft.orm.repository.OrmRepoContainer;
 import org.mikesoft.orm.repository.PersistRepository;
@@ -19,8 +18,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-
-import static org.mikesoft.orm.EntityProfileFactory.createAndSetJoinTableProfile;
 
 
 @Getter
@@ -78,14 +75,13 @@ public class DBEnvironment {
         }
     }
 
-    public void initializeEntities(List<Class<? extends AbstractEntity>> entities) {
+    public void initializeEntities(List<Class<?>> entities) {
         entities.forEach(clazz -> global.add(DAOFactory.createDAO(getDataSource(), clazz)));
         initializeJoinTables();
         initEnvironment();
     }
 
-    @SafeVarargs
-    public final void initializeEntities(final Class<? extends AbstractEntity>... entities) {
+    public final void initializeEntities(Class<?>... entities) {
         initializeEntities(Arrays.stream(entities).toList());
     }
 
@@ -103,8 +99,7 @@ public class DBEnvironment {
                     if (joinDAO == null)
                         throw new IllegalArgumentException("DAO not found for joined " + column.getTargetJavaType());
                     //TODO Refactoring for exclude second pass
-                    createAndSetJoinTableProfile(column, dao.getProfile(), joinDAO.getProfile());
-//                    dao.getProfile().createJoinTable(column, joinDAO.getProfile());
+                    column.join(joinDAO.getProfile());
 
                     DAO<?, ?> joinTableDao = DAOFactory.createDAO(getDataSource(), column.getJoinTableProfile());
                     global.add(joinTableDao);
@@ -113,16 +108,16 @@ public class DBEnvironment {
 
     private void initEnvironment() {
         global.getDaoSet().forEach(dao -> {
-            ((DAOImpl<?>)dao).setFormattedSQLStatement(formattedSQLStatement);
+            ((DAOImpl<?,?>)dao).setFormattedSQLStatement(formattedSQLStatement);
             CRUDRepositoryImpl<?, ?> crud = (CRUDRepositoryImpl<?, ?>) RepositoryFactory.createCRUDRepository(dao);
             crud.setGlobal(global);
             global.add(crud);
-            if (dao.getProfile().getEntityClass() != JoinTableEntity.class)
+            if (dao.getProfile().getEntityClass() != JoinTableEntityIntID.class)
                 global.add(RepositoryFactory.createPersistRepository(crud));
 
             if (startMode == StartMode.DROP_AND_CREATE) DBManager.dropTableIfExists(dao);
             if (startMode != StartMode.AS_IT_IS) {
-                if (!DBManager.tableExists((DAOImpl<?>) dao)) {
+                if (!DBManager.tableExists((DAOImpl<?,?>) dao)) {
                     DBManager.createTableIfNotExists(dao);
                     onCreateTableAction(dao.getProfile().entityClass);
                 }

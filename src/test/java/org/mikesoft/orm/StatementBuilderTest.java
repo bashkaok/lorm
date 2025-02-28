@@ -5,13 +5,12 @@ import org.mikesoft.orm.testdata.EmbeddedEntity;
 import org.mikesoft.orm.testdata.MainEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mikesoft.orm.EntityProfileFactory.createAndSetJoinTableProfile;
 
 class StatementBuilderTest {
     private static final EntityProfile ep = EntityProfileFactory.createProfile(MainEntity.class);
     private static final EntityProfile embed = EntityProfileFactory.createProfile(EmbeddedEntity.class);
     static {
-        createAndSetJoinTableProfile(ep.getColumnByField("embeddedListDefault"), ep, embed);
+        ep.getColumnByField("embeddedListDefault").join(embed);
     }
 
 
@@ -31,6 +30,7 @@ class StatementBuilderTest {
 
     @Test
     void buildCreateTableStatement_with_FOREIGNKEY() {
+//        System.out.println(ep.getColumnByField("embeddedListDefault").getJoinTableProfile());
         String st = StatementBuilder.buildCreateTableStatement(ep.getColumnByField("embeddedListDefault").getJoinTableProfile(), true);
 //        System.out.println(st);
         assertTrue(st.contains("FOREIGN KEY (\"MainTable_Id\") REFERENCES MainTable (\"id\") ON DELETE CASCADE"));

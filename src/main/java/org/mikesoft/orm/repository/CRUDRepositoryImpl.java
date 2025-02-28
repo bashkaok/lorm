@@ -5,7 +5,6 @@ import lombok.Setter;
 import lombok.extern.java.Log;
 import org.mikesoft.orm.DAO;
 import org.mikesoft.orm.DAOException;
-import org.mikesoft.orm.entity.AbstractEntity;
 
 import jakarta.persistence.UniqueConstraint;
 
@@ -20,7 +19,7 @@ import static org.mikesoft.orm.DAOException.onSQLError;
 @Getter
 @Setter
 @Log
-public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRepository<T, ID> {
+public class CRUDRepositoryImpl<T,ID> implements CRUDRepository<T, ID> {
     protected final DAO<T, ID> dao;
     protected OrmRepoContainer global = null;
 
@@ -56,9 +55,9 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
     }
 
     @Override
-    public Optional<T> get(T entity) {
+    public Optional<T> getByEntity(T entity) {
         try {
-            return dao.read(entity);
+            return dao.readByEntity(entity);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -75,7 +74,8 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
 
     @Override
     public void update(T entity) throws DAOException {
-        if (entity.getId() == null)
+//        if (entity.getId() == null)
+        if (dao.getProfile().getIdValue(entity) == null)
             throw new IllegalArgumentException("Wrong ID for update. Expected not null ID for entity " + entity);
         try {
             dao.update(entity);
@@ -87,20 +87,21 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
     @SuppressWarnings("unchecked")
     @Override
     public void addOrUpdate(T entity) throws DAOException {
-        if (entity.getId() == null) {
+//        if (entity.getId() == null) {
+        if (dao.getProfile().getIdValue(entity) == null) {
             add(entity);
             return;
         }
-        if (get((ID) entity.getId()).isEmpty()) add(entity);
+        if (get((ID) dao.getProfile().getIdValue(entity)).isEmpty()) add(entity);
         else update(entity);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public void merge(T entity) {
-        if (entity.getId() != null) {
+        if (dao.getProfile().getIdValue(entity) != null) {
             try {
-                Optional<T> found = get((ID) entity.getId());
+                Optional<T> found = get((ID) dao.getProfile().getIdValue(entity));
                 if (found.isPresent()) {
                     dao.getProfile().enrich(entity, found.get()); //TODO replace on UPDATE of not-null fields
                     update(entity);
@@ -134,7 +135,8 @@ public class CRUDRepositoryImpl<T extends AbstractEntity, ID> implements CRUDRep
         try {
             if (found == null) add(entity);
             else {
-                entity.setId(found.getId());
+//                entity.setId(found.getId());
+                dao.getProfile().setIdValue(entity, dao.getProfile().getIdValue(found));
                 dao.getProfile().enrich(entity, found);
                 update(entity);
             }

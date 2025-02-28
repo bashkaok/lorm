@@ -3,18 +3,21 @@ package org.mikesoft.orm.testdata;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import org.mikesoft.orm.entity.AbstractEntity;
 
 import java.util.List;
 
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode
 @ToString(callSuper = true)
 @Data
 @NoArgsConstructor
 @SuperBuilder
 @Entity
 @Table(name = "MainTable", uniqueConstraints = {@UniqueConstraint(columnNames = {"stringField", "stringDefaultColumn"})})
-public class MainEntity extends AbstractEntity {
+public class MainEntity {
+    @Column(unique = true, updatable = false)
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Integer id;
     @Column
     private String stringField;
     @Builder.Default

@@ -17,7 +17,7 @@ public class DBManager {
     protected static Logger log = Logger.getLogger(DBManager.class.getName());
 
     public static void createTableIfNotExists(DAO<?, ?> dao) {
-        DAOImpl<?> baseDao = (DAOImpl<?>) dao;
+        DAOImpl<?,?> baseDao = (DAOImpl<?,?>) dao;
         String createStatement = buildCreateTableStatement(dao.getProfile(), true);
         try {
             log.info("Create table: " + dao.getProfile().getTableName());
@@ -32,7 +32,7 @@ public class DBManager {
     }
 
     public static void dropTableIfExists(DAO<?, ?> dao) {
-        DAOImpl<?> baseDao = (DAOImpl<?>) dao;
+        DAOImpl<?,?> baseDao = (DAOImpl<?,?>) dao;
         String dropStatement = buildDropTableStatement(dao.getProfile(), true);
         try {
             log.info("Drop table: " + dao.getProfile().getTableName());
@@ -64,7 +64,7 @@ public class DBManager {
     public static boolean tableEquals(DAO<?,?> dao) {
         String fromDB;
         try {
-            fromDB = ((DAOImpl<?>)dao)
+            fromDB = ((DAOImpl<?,?>)dao)
                     .withConnection(connection -> getCreateStatement(connection,dao.getProfile().getTableName()));
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -86,7 +86,7 @@ public class DBManager {
     }
 
 
-    public static boolean tableExists(DAOImpl<?> dao) {
+    public static boolean tableExists(DAOImpl<?,?> dao) {
         try {
             return dao.withConnection(connection -> tableExists(connection, dao.getProfile().getTableName()));
         } catch (SQLException e) {
