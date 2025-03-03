@@ -1,7 +1,7 @@
 package org.mikesoft.orm;
 
 import jakarta.persistence.*;
-import org.mikesoft.orm.entity.JoinTableEntity;
+import org.mikesoft.orm.entity.JoinTableEntityIntID;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AccessFlag;
@@ -89,6 +89,7 @@ public class EntityProfileFactory {
                     column.setOrder(order.incrementAndGet());
                 })
                 .forEach(column -> {
+                    column.setParent(ep);
                     ep.getColumnsByField().put(column.getFieldName(), column);
                     ep.getColumns().put(column.getColumnName(), column);
                 });
@@ -108,7 +109,7 @@ public class EntityProfileFactory {
     public static void buildStatements(EntityProfile profile) {
         profile.getStatements().put("UPDATE_BY_ID", StatementBuilder.buildUpdateByIdStatement(profile));
         profile.getStatements().put("INSERT", StatementBuilder.buildInsertStatement(profile));
-        profile.getStatements().put("READ_BY_ENTITY", StatementBuilder.buildReadByEntityStatement(profile));
+//        profile.getStatements().put("READ_BY_ENTITY", StatementBuilder.buildReadByEntityStatement(profile));
     }
 
 
@@ -131,11 +132,11 @@ public class EntityProfileFactory {
     public static EntityProfile createJoinTableProfile(EntityProfile.Column ownerColumn,
                                                        EntityProfile ownerProfile,
                                                        EntityProfile embeddedProfile) {
-        EntityProfile jp = buildProfile(JoinTableEntity.class);
-        //replace generic types of fields by the type of ID
-        jp.getCreateTableColumns()
-                .filter(f -> (f.getField().getGenericType() != f.getField().getType()))
-                .forEach(column -> column.setTargetJavaType(jp.getIdColumn().getTargetJavaType()));
+        EntityProfile jp = buildProfile(JoinTableEntityIntID.class);
+        //replace generic types of fields by the type of ownerID and embeddedId
+        jp.getIdColumn().setTargetJavaType(Integer.class); //TODO find a way to get generic type from JoinTableEntityIntID.class
+        jp.getColumnByField("ownerId").setTargetJavaType(ownerProfile.getIdColumn().getTargetJavaType());
+        jp.getColumnByField("embeddedId").setTargetJavaType(embeddedProfile.getIdColumn().getTargetJavaType());
 
         PersistenceJoinTableParser jtParser =
                 new PersistenceJoinTableParser(ownerColumn.getField().getDeclaredAnnotation(JoinTable.class));
@@ -184,13 +185,6 @@ public class EntityProfileFactory {
             }
         };
     }
-
-    public static void createAndSetJoinTableProfile(EntityProfile.Column ownerColumn,
-                                                    EntityProfile ownerProfile,
-                                                    EntityProfile embeddedProfile) {
-        ownerColumn.setJoinTableProfile(createJoinTableProfile(ownerColumn, ownerProfile, embeddedProfile));
-    }
-
 
     private record PersistenceJoinTableParser(JoinTable joinTable) {
         public String getNameOrElse(String elseName) {

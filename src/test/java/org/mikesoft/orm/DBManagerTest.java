@@ -17,7 +17,7 @@ import static org.mikesoft.orm.utils.streamOf;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class DBManagerTest {
-    static DAOImpl<?> dao;
+    static DAOImpl<?,?> dao;
     static SQLiteDataSource dataSource = new SQLiteDataSource();
 
     @BeforeAll
@@ -28,7 +28,7 @@ class DBManagerTest {
 //        dataSource.setUrl("jdbc:sqlite::memory:");
         dataSource.setUrl("jdbc:sqlite:memory:?cache=shared");
 //        dataSource.setUrl("jdbc:sqlite:file:target/test-data/testdb.sqlite");
-        dao = (DAOImpl<?>) DAOFactory.createDAO(dataSource, MainEntity.class);
+        dao = (DAOImpl<?,?>) DAOFactory.createDAO(dataSource, MainEntity.class);
         DBManager.createTableIfNotExists(dao);
     }
 

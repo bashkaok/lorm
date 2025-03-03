@@ -3,7 +3,6 @@ package org.mikesoft.orm;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.ToString;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -17,7 +16,6 @@ import static org.mikesoft.orm.EntityProfileFactory.*;
 
 
 @Getter
-@ToString
 public class EntityProfile {
     protected final Class<?> entityClass;
     private final Constructor<?> noArgsConstructor;
@@ -129,19 +127,24 @@ public class EntityProfile {
     }
 
     public String getStatement(String key) {
-        String statement = getStatements().get(key);
-        if (statement == null)
-            throw new IllegalArgumentException("Statement not found: " + key);
-        return statement;
+        return getStatements().get(key);
+    }
+
+    @Override
+    public String toString() {
+        return "EntityProfile{" +
+                "tableName='" + tableName + '\'' +
+                ", idColumn=" + idColumn +
+                '}';
     }
 
     //TODO Refactoring: move annotation parsers to EntityProfileFactory
     @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"})
-    @ToString
     @Getter
     @Setter
     public static class Column {
         private final Field field;
+        private EntityProfile parent;
 
         private Class<?> targetJavaType;
         private int order;
@@ -180,6 +183,15 @@ public class EntityProfile {
                     default -> {}
                 }
             }
+        }
+
+        @Override
+        public String toString() {
+            return "Column{" +
+                    "field=" + getFieldName() +
+                    ", columnName='" + columnName + '\'' +
+                    ", targetJavaType=" + targetJavaType +
+                    '}';
         }
 
         private void parsePersistenceManyToMany(ManyToMany manyToMany) {
@@ -241,6 +253,10 @@ public class EntityProfile {
 
         public boolean isUpdatable() {
             return getColumnAnnotation().updatable();
+        }
+
+        public void join(EntityProfile embed) {
+            joinTableProfile = createJoinTableProfile(this, getParent(), embed);
         }
     }
 

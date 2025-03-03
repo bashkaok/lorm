@@ -1,15 +1,13 @@
 package org.mikesoft.orm;
 
 
-import org.mikesoft.orm.entity.AbstractEntity;
-
 import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-public interface DAO<T extends AbstractEntity, ID> {
+public interface DAO<T, ID> {
 
     /**
      *
@@ -19,7 +17,7 @@ public interface DAO<T extends AbstractEntity, ID> {
     int createAll(List<T> entityList) throws SQLException;
 
     Optional<T> read(ID id) throws SQLException;
-    Optional<T> read(T entity) throws SQLException;
+    Optional<T> readByEntity(T entity) throws SQLException;
     Stream<T> readAll() throws SQLException;
     /**
      *

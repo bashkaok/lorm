@@ -94,14 +94,13 @@ public class CRUDRepositoryImplTest {
         @Test
         @Order(4)
         void get_by_entity() {
-            //TODO Wrong "=" operator in SQL for NULL operands
-            assertEquals(expected, crud.get(expected).orElse(null));
+            assertEquals(expected, crud.getByEntity(expected).orElse(null));
         }
 
         @Test
         @Order(5)
         void getAll() {
-            assertEquals(4, crud.getAll().count());
+            assertEquals(3, crud.getAll().count());
         }
 
 

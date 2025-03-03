@@ -2,23 +2,24 @@ package org.mikesoft.orm.repository;
 
 
 import org.mikesoft.orm.DAOException;
-import org.mikesoft.orm.entity.AbstractEntity;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-public interface CRUDRepository<T extends AbstractEntity, ID> extends Repository<T,ID> {
+public interface CRUDRepository<T,ID> extends Repository<T,ID> {
     void add(T entity) throws DAOException;
     void addAll(List<T> entity)  throws DAOException;
     Optional<T> get(ID id);
-    Optional<T> get(T entity);
+    Optional<T> getByEntity(T entity);
     Stream<T> getAll();
     void update(T entity) throws DAOException;
     void addOrUpdate(T entity) throws DAOException;
 
     /**
-     * Adds to store record not-null fields from entity
+     * Updates the store record by not-null fields from entity. The specified entity has priority if field is not-null.
+     * Specified entity will be filled by merged record
+     * If specified entity id is null the searching will be done by unique fields
      */
     void merge(T entity);
     void delete(ID id) throws DAOException;

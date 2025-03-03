@@ -57,14 +57,16 @@ public class StatementBuilder {
         profile.getCreateTableColumns().forEach(column -> statement.add(buildField(column)));
         profile.getUniqueConstraints()
                 .forEach(constraint -> statement.add("UNIQUE(" +
-                        Arrays.stream(constraint.columnNames()).map(StatementBuilder::inQuotes).collect(Collectors.joining(","))
+                        Arrays.stream(constraint.columnNames())
+                                .map(StatementBuilder::inQuotes)
+                                .collect(Collectors.joining(","))
                         + ")"));
         profile.getForeignKeys().forEach(fk -> statement.add(
                 "FOREIGN KEY (" + Arrays.stream(fk.columns())
                         .map(StatementBuilder::inQuotes).collect(Collectors.joining(",")) +
-                ") REFERENCES " + fk.referenceTable() + " (" + Arrays.stream(fk.referenceColumns())
+                        ") REFERENCES " + fk.referenceTable() + " (" + Arrays.stream(fk.referenceColumns())
                         .map(StatementBuilder::inQuotes).collect(Collectors.joining(",")) + ")"
-                + " ON DELETE CASCADE")
+                        + " ON DELETE CASCADE")
         );
         return header + "(\n" + String.join(",\n", statement) + "\n)";
     }
@@ -80,6 +82,7 @@ public class StatementBuilder {
     }
 
     private static String buildField(EntityProfile.Column column) {
+//        System.out.println(column.getFieldName() + " : " + column.getTargetJavaType().getTypeName());
         StringBuilder builder = new StringBuilder();
         builder.append('"').append(column.getColumnName()).append('"').append("\t");
         if (column.getColumnAnnotation().columnDefinition().isEmpty()) {
@@ -100,4 +103,14 @@ public class StatementBuilder {
                         .map(column -> column.getColumnName() + "=?")
                         .collect(Collectors.joining(" AND "));
     }
+
+    public static String buildReadByEntityStatement(EntityProfile profile, Object entityValue) {
+        return "SELECT * FROM " + profile.getTableName() +
+                "\nWHERE " +
+                profile.getCreateTableColumns()
+                        .filter(column -> !column.isId())
+                        .map(column -> column.getColumnName() + (column.getValue(entityValue) == null ? " IS NULL" : "=?"))
+                        .collect(Collectors.joining(" AND "));
+    }
+
 }

@@ -1,8 +1,6 @@
 package org.mikesoft.orm.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
+import jakarta.persistence.*;
 import lombok.*;
 import org.mikesoft.orm.EntityProfile;
 
@@ -10,21 +8,45 @@ import org.mikesoft.orm.EntityProfile;
 /**
  * ORM inner class for a joining tables manipulated
  */
+@SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"})
 @NoArgsConstructor
 @Setter
-@Getter
 @ToString(callSuper = true)
 @Entity
 @Table
-public class JoinTableEntity<ID> extends AbstractEntity {
-    ID ownerId;
-    ID embeddedId;
+public class JoinTableEntity<ID> {
+    @Column(unique = true, updatable = false)
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private ID id; //TODO replace by Long if need or ?
+    private Object ownerId;
+    private Object embeddedId;
     @Transient
     @ToString.Exclude
     private EntityProfile profile;
 
-    public JoinTableEntity(ID ownerId, ID embeddedId) {
+    public JoinTableEntity(Object ownerId, Object embeddedId) {
         this.ownerId = ownerId;
         this.embeddedId = embeddedId;
+    }
+
+    public ID getId() {
+        return id;
+    }
+
+    public void setId(ID id) {
+        this.id = id;
+    }
+
+    public EntityProfile getProfile() {
+        return profile;
+    }
+
+    public Object getOwnerId() {
+        return ownerId;
+    }
+
+    public Object getEmbeddedId() {
+        return embeddedId;
     }
 }
