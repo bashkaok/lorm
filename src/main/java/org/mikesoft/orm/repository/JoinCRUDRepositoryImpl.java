@@ -7,13 +7,14 @@ import org.mikesoft.orm.entity.JoinTableEntity;
 import java.sql.SQLException;
 import java.util.List;
 
-public class JoinCRUDRepositoryImpl<T, ID> extends CRUDRepositoryImpl<JoinTableEntity<ID>,ID> implements JoinCRUDRepository<JoinTableEntity<ID>,ID> {
+public class JoinCRUDRepositoryImpl<T, ID> extends CRUDRepositoryImpl<JoinTableEntity<ID>, ID> implements JoinCRUDRepository<JoinTableEntity<ID>,ID> {
+    @SuppressWarnings("unchecked")
     public JoinCRUDRepositoryImpl(DAO<T, ID> dao) {
         super((DAO<JoinTableEntity<ID>, ID>) dao);
     }
 
     @Override
-    public List<JoinTableEntity<ID>> findAllEmbedded(ID ownerId) {
+    public List<JoinTableEntity<ID>> findAllEmbedded(Object ownerId) {
         try {
             String columnName = dao.getProfile().getColumnByField("ownerId").getColumnName();
             return dao.findAll(columnName + "=?", ownerId).stream()

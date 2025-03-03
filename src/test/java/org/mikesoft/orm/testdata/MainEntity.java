@@ -7,7 +7,7 @@ import lombok.experimental.SuperBuilder;
 import java.util.List;
 
 @EqualsAndHashCode
-@ToString(callSuper = true)
+@ToString
 @Data
 @NoArgsConstructor
 @SuperBuilder
@@ -32,12 +32,12 @@ public class MainEntity {
     @Column(columnDefinition = "INTEGER DEFAULT 0")
     private boolean booleanField;
     private String unAnnotatedField;
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "join_MainTable_with_EmbeddedTable",
             joinColumns = {@JoinColumn(name = "OWNER_ID", referencedColumnName = "id")},
             inverseJoinColumns = @JoinColumn(name = "EMBEDDED_ID", referencedColumnName = "id"))
     List<EmbeddedEntity> embeddedList;
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     List<EmbeddedEntity> embeddedListDefault;
 
 

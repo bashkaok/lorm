@@ -17,7 +17,9 @@ public interface CRUDRepository<T,ID> extends Repository<T,ID> {
     void addOrUpdate(T entity) throws DAOException;
 
     /**
-     * Adds to store record not-null fields from entity
+     * Updates the store record by not-null fields from entity. The specified entity has priority if field is not-null.
+     * Specified entity will be filled by merged record
+     * If specified entity id is null the searching will be done by unique fields
      */
     void merge(T entity);
     void delete(ID id) throws DAOException;
