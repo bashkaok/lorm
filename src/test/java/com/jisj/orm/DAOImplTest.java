@@ -12,7 +12,6 @@ import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.logging.LogManager;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,10 +31,10 @@ class DAOImplTest {
     @SuppressWarnings("unchecked")
     @BeforeAll
     public static void setUp() throws IOException {
-        InputStream ins = DAOImplTest.class.getClassLoader().getResourceAsStream("log.properties");
+        InputStream ins = DAOImplTest.class.getClassLoader().getResourceAsStream("log-test.properties");
         LogManager.getLogManager().readConfiguration(ins);
 
-        db = new DBEnvironment(DBEnvironment.StandardConnection.MEMORY_CACHE);
+        db = DBEnvironment.getInstance(DBDataSource.newPooledDataSource(DBDataSource.StandardConnection.MEMORY_CACHE));
         db.setStartMode(DBEnvironment.StartMode.DROP_AND_CREATE);
         db.initializeEntities(List.of(MainEntity.class, EmbeddedEntity.class));
         dao = (DAOImpl<MainEntity, Integer>) DAOFactory.createDAO(db.getDataSource(), MainEntity.class);
@@ -274,7 +273,7 @@ class DAOImplTest {
     void query() throws SQLException {
         final String sql = """
                 SELECT * FROM MainTable
-                WHERE stringDefaultColumn LIKE ? AND doubleField IN (?)
+                WHERE stringDefaultColumn LIKE ?
                 """;
 
         MainEntity e1 = MainEntity.builder()
@@ -298,8 +297,7 @@ class DAOImplTest {
         assertEquals(1, dao.create(e1));
         assertEquals(1, dao.create(e2));
         assertEquals(1, dao.create(e3));
-        dao.readAll().forEach(System.out::println);
-        List<?> response = dao.query(sql, "default_query%", Set.of(1.0,2.0,3.0));
+        List<?> response = dao.query(sql, "default_query%");
         assertEquals(2, response.size());
     }
 

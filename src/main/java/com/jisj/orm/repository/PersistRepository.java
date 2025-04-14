@@ -24,7 +24,8 @@ public interface PersistRepository<T,ID> extends Repository<T,ID> {
     void refresh(T entity) throws DAOException;
 
     /**
-     * Persists entity. Merges entity with store record. Also persists all embedded entities in ManyToMany fields
+     * Persists entity. Merges entity with store record. Also persists all embedded entities in ManyToMany fields with any nest level.
+     * @param entity entity object
      * @throws IllegalArgumentException when try to add record in non-insertable or non-updatable column in embedded fields
      */
     void persist(T entity);

@@ -8,29 +8,20 @@ import com.jisj.orm.repository.CRUDRepositoryImpl;
 import com.jisj.orm.repository.OrmRepoContainer;
 import com.jisj.orm.repository.PersistRepository;
 import com.jisj.orm.repository.RepositoryFactory;
-import org.sqlite.javax.SQLiteConnectionPoolDataSource;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-
-@SuppressWarnings("LombokSetterMayBeUsed")
+@SuppressWarnings({"LombokSetterMayBeUsed", "LombokGetterMayBeUsed"})
 @Log
 public class DBEnvironment {
-    @Getter
     private static DBEnvironment instance = null;
-    @Getter
-    private final SQLiteConnectionPoolDataSource dataSource;
+    private final DBDataSource dataSource;
     @Getter
     private StartMode startMode = StartMode.CREATE_IF_NOT_EXISTS;
-    @Getter
-    private String currentPath = "target/test-data/testdb.sqlite";
     @Setter
     private boolean formattedSQLStatement = false;
     @Getter
@@ -38,46 +29,41 @@ public class DBEnvironment {
     @Getter
     private final Map<Class<?>, PersistRepository<?, ?>> persistRepositoryMap = new HashMap<>();
     private final Map<Class<?>, Consumer<OrmRepoContainer>> onCreateActions = new HashMap<>();
+    private final Map<Class<?>, Consumer<OrmRepoContainer>> onIntegrityCheckActions = new HashMap<>();
 
-    public DBEnvironment() {
-        if (instance != null)
-            throw new IllegalStateException("DBEnvironment instance already exists. Use getInstance()");
-        dataSource = new SQLiteConnectionPoolDataSource();
-        org.sqlite.SQLiteConfig config = new org.sqlite.SQLiteConfig();
-        config.enableCaseSensitiveLike(false);
-        config.enforceForeignKeys(true);
-        dataSource.setConfig(config);
-        instance = this;
+
+    private DBEnvironment(DBDataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
-    public DBEnvironment(StandardConnection connection) {
-        this();
-        setConnection(connection);
+    public static DBEnvironment getInstance(DBDataSource dataSource) {
+        if (instance==null) {
+            instance = new DBEnvironment(dataSource);
+            return instance;
+        }
+        log.warning("Object already instanced: " + dataSource.getUrl());
+        return instance;
+    }
+
+    public static DBEnvironment getInstance() {
+        if (instance == null)
+            throw new IllegalStateException("DBEnvironment not instanced. Use getInstance(DBDatasource)");
+        return instance;
     }
 
     public void close() {
-        log.info("DB instance was closed: " + getInstance().getDataSource().getUrl());
+        log.info("DB instance was closed: " + dataSource.getUrl());
         instance = null;
     }
 
-    public void setConnection(String url) {
-        dataSource.setUrl(url);
-        log.info("Connection with: " + dataSource.getUrl());
+    public DBDataSource getDataSource() {
+        return dataSource;
     }
 
-    public void setConnection(StandardConnection connection) {
-        setConnection(connection == StandardConnection.FILE_CURRENT_PATH ? connection.getUrl() + currentPath : connection.getUrl());
-    }
-
-    public void setCurrentPath(String path) {
-        try {
-            Files.createDirectories(Path.of(path).getParent());
-            currentPath = path;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
+    /**
+     * Sets start mode for the database
+     * @param startMode value of {@link StartMode} Default: {@link StartMode#CREATE_IF_NOT_EXISTS CREATE_IF_NOT_EXISTS}
+     */
     public void setStartMode(StartMode startMode) {
         this.startMode = startMode;
     }
@@ -92,28 +78,34 @@ public class DBEnvironment {
     }
 
     /**
-     * Creates entities DAO and repositories
-     * @param entities list of entity classes
+     * Sets an action that will be performed after everything entities initialization.
+     * Setter should be applied BEFORE {@code initializeEntities()} call
+     * @param entityClass table entity class
+     * @param action action method
      */
-    public void initializeEntities(List<Class<?>> entities) {
-        entities.forEach(clazz -> global.add(DAOFactory.createDAO(getDataSource(), clazz)));
-        initializeJoinTables();
-        initEnvironment();
+    public void setOnIntegrityCheckActions(Class<?> entityClass, Consumer<OrmRepoContainer> action) {
+        onIntegrityCheckActions.put(entityClass, action);
     }
 
     /**
      * Creates entities DAO and repositories
-     * @param entities list of entity classes
+     * @param entities variants of entity classes
+     * @see #initializeEntities(List)
      */
     public final void initializeEntities(Class<?>... entities) {
         initializeEntities(Arrays.stream(entities).toList());
     }
 
-    private void onCreateTableAction(Class<?> entityClass) {
-        Consumer<OrmRepoContainer> action = onCreateActions.get(entityClass);
-        if (action!=null) {
-            action.accept(global);
-        }
+    /**
+     * Creates entities DAO and repositories
+     * @param entities list of entity classes
+     * @see #initializeEntities(Class[])
+     */
+    public void initializeEntities(List<Class<?>> entities) {
+        entities.forEach(clazz -> global.add(DAOFactory.createDAO(dataSource, clazz)));
+        initializeJoinTables();
+        initEnvironment();
+        performIntegrityCheck();
     }
 
     private void initializeJoinTables() {
@@ -125,7 +117,7 @@ public class DBEnvironment {
                     //TODO Refactoring for exclude second pass
                     column.join(joinDAO.getProfile());
 
-                    DAO<?, ?> joinTableDao = DAOFactory.createDAO(getDataSource(), column.getJoinTableProfile());
+                    DAO<?, ?> joinTableDao = DAOFactory.createDAO(dataSource, column.getJoinTableProfile());
                     global.add(joinTableDao);
                 }));
     }
@@ -149,28 +141,18 @@ public class DBEnvironment {
         });
     }
 
-    @Getter
-    public enum StandardConnection {
-        /**
-         * DB will be created in memory
-         */
-        MEMORY("jdbc:sqlite::memory:"),
-        /**
-         * DB will be created in memory common to all connections
-         */
-        MEMORY_CACHE("jdbc:sqlite:memory:?cache=shared"),
-        FILE_MEMORY_MODE("jdbc:sqlite:file:?mode=memory&cache=shared"),
-        /**
-         * Connection string sets at {@link #setCurrentPath(String)}}
-         */
-        FILE_CURRENT_PATH("jdbc:sqlite:file:");
-
-        private final String url;
-
-        StandardConnection(String url) {
-            this.url = url;
+    private void onCreateTableAction(Class<?> entityClass) {
+        Consumer<OrmRepoContainer> action = onCreateActions.get(entityClass);
+        if (action!=null) {
+            action.accept(global);
         }
     }
+
+    private void performIntegrityCheck() {
+        onIntegrityCheckActions.values()
+                .forEach(action-> action.accept(global));
+    }
+
 
     /**
      * Database start modes

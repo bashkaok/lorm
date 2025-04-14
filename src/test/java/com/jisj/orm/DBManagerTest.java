@@ -22,7 +22,7 @@ class DBManagerTest {
 
     @BeforeAll
     public static void setUp() throws IOException {
-        InputStream ins = DBManagerTest.class.getClassLoader().getResourceAsStream("log.properties");
+        InputStream ins = DBManagerTest.class.getClassLoader().getResourceAsStream("log-test.properties");
         LogManager.getLogManager().readConfiguration(ins);
         DBManager.log.setLevel(Level.FINE);
 //        dataSource.setUrl("jdbc:sqlite::memory:");
@@ -63,7 +63,7 @@ class DBManagerTest {
     void getTables() throws SQLException {
         dao.withConnection(connection -> {
             System.out.println("Tables:");
-            DBManager.getTables(connection).forEach(tbl -> System.out.println(sqlExWrap(() -> tbl.getString(3))));
+            assertTrue(DBManager.getTables(connection).findAny().isPresent());
             System.out.println("Schemas:");
             streamOf(DBManager.getMetaData(connection).getSchemas())
                     .forEach(sc -> System.out.println(sqlExWrap(() -> sc.getString(1))));

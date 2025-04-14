@@ -7,11 +7,16 @@ import com.jisj.orm.entity.JoinTableEntity;
 
 import java.util.*;
 
+/**
+ * Implementation of {@code PersistRepository<T, ID>}
+ * @param <T> entity type
+ * @param <ID> entity identifier
+ */
 @SuppressWarnings("LombokGetterMayBeUsed")
 public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
     private final DAO<?, ?> dao;
     private final CRUDRepository<T, ID> crud;
-    private OrmRepoContainer global;
+    private final OrmRepoContainer global;
 
     public PersistRepositoryImpl(CRUDRepository<T, ID> crud) {
         this.crud = crud;
@@ -105,6 +110,9 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
                             .map(joinEntity -> embedCrud.get(((JoinTableEntity<?>) joinEntity).getEmbeddedId()))
                             .filter(Optional::isPresent)
                             .map(Optional::get)
+                            .peek(e -> {
+                                if (e.getClass() == entity.getClass()) loadEmbedded((T) e); //for nested entities
+                            })
                             .toList();
                     if (column.getField().getType().isAssignableFrom(Set.class)) {
                         column.setValue(entity, new HashSet<>(embedded));
@@ -145,26 +153,32 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
         loadEmbedded(entity);
     }
 
+    /**
+     * {@inheritDoc}
+     * If embedded entities have not ID but its have a unique field before insert that entities will be done the search by the unique field
+     */
     @Override
     public void persist(T entity) {
         crud.merge(entity);
-        dao.getProfile().getManyToManyColumns().forEach(column -> persistColumn(entity, column));
+        dao.getProfile().getManyToManyColumns()
+                .forEach(column -> persistColumn(entity, column));
     }
 
     @SuppressWarnings("unchecked")
     private void persistColumn(T entity, EntityProfile.Column column) {
-        if (column.isCollection() && column.getValue(entity)!=null) {
+        if (column.isCollection() && column.getValue(entity) != null) {
             CRUDRepository<Object, ?> embedCrud = (CRUDRepository<Object, ?>) global.getCrudRepository(column.getTargetJavaType());
             CRUDRepository<?, ?> joinCrud = global.getCrudRepository(column.getJoinTableProfile().getTableName());
 
             ((Collection<?>) column.getValue(entity))
                     .forEach(embeddedEntity -> {
+                        if (embeddedEntity.getClass() == entity.getClass()) persist((T) embeddedEntity); //for nested entities
                         persistEmbeddedEntity(column, embedCrud, embeddedEntity);
                         JoinTableEntity<?> joinTableEntity = createJoinTableEntity(
                                 entity,
                                 embeddedEntity,
-                                ((CRUDRepositoryImpl<?,?>)embedCrud).getDao().getProfile(),
-                                ((JoinCRUDRepositoryImpl<?,?>) joinCrud).getDao().getProfile());
+                                ((CRUDRepositoryImpl<?, ?>) embedCrud).getDao().getProfile(),
+                                ((JoinCRUDRepositoryImpl<?, ?>) joinCrud).getDao().getProfile());
                         addJoinTableEntity(joinCrud, joinTableEntity);
                     });
         }
@@ -174,11 +188,11 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
                                               CRUDRepository<Object, ?> embedCrud,
                                               Object embeddedEntity) {//TODO Make container for entity value and EntityProfile from DAO
         if (!column.isInsertable() &&
-                ((CRUDRepositoryImpl<?,?>)embedCrud).getDao().getProfile().getIdValue(embeddedEntity) == null) {
+                ((CRUDRepositoryImpl<?, ?>) embedCrud).getDao().getProfile().getIdValue(embeddedEntity) == null) {
             throw new IllegalArgumentException("Try add record in non-insertable column: " + column.getColumnName());
         }
         if (!column.isUpdatable() &&
-                ((CRUDRepositoryImpl<?,?>)embedCrud).getDao().getProfile().getIdValue(embeddedEntity) == null) {
+                ((CRUDRepositoryImpl<?, ?>) embedCrud).getDao().getProfile().getIdValue(embeddedEntity) == null) {
             throw new IllegalArgumentException("Try update record in non-updatable column: " + column.getColumnName());
         }
         if (column.isInsertable() && column.isUpdatable())

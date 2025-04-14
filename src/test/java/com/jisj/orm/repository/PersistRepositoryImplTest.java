@@ -1,42 +1,46 @@
 package com.jisj.orm.repository;
 
+import com.jisj.orm.DBDataSource;
+import com.jisj.orm.testdata.NestedEntity;
+import lombok.extern.java.Log;
 import org.junit.jupiter.api.*;
 import com.jisj.orm.DAOException;
 import com.jisj.orm.DBEnvironment;
 import com.jisj.orm.entity.JoinTableEntityIntID;
 import com.jisj.orm.testdata.EmbeddedEntity;
 import com.jisj.orm.testdata.MainEntity;
-import org.sqlite.javax.SQLiteConnectionPoolDataSource;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.logging.Level;
 import java.util.logging.LogManager;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Log
 class PersistRepositoryImplTest {
     private static DBEnvironment db;
     private static PersistRepository<MainEntity, Integer> per;
+    private static PersistRepository<NestedEntity, Integer> perNest;
     private static CRUDRepository<EmbeddedEntity, ?> crudEmbed;
 
     @SuppressWarnings("unchecked")
     @BeforeAll
     public static void setUp() throws IOException {
-        InputStream ins = PersistRepositoryImplTest.class.getClassLoader().getResourceAsStream("log.properties");
+        InputStream ins = PersistRepositoryImplTest.class.getClassLoader().getResourceAsStream("log-test.properties");
         LogManager.getLogManager().readConfiguration(ins);
+        log.setLevel(Level.FINE);
 
-        SQLiteConnectionPoolDataSource dataSource = new SQLiteConnectionPoolDataSource();
-        dataSource.setUrl("jdbc:sqlite:memory:&cache=shared");
-        db = new DBEnvironment(DBEnvironment.StandardConnection.MEMORY_CACHE);
-//        db = new DBEnvironment(DBEnvironment.StandardConnection.FILE_CURRENT_PATH);
+        db = DBEnvironment.getInstance(DBDataSource.newPooledDataSource(DBDataSource.StandardConnection.MEMORY_CACHE));
         db.setStartMode(DBEnvironment.StartMode.DROP_AND_CREATE);
-        db.initializeEntities(MainEntity.class, EmbeddedEntity.class);
-//        per = (PersistRepository<MainEntity, Integer>) new PersistRepositoryImpl<>(db.getGlobal().getCrudRepository(MainEntity.class));
+        db.initializeEntities(MainEntity.class, EmbeddedEntity.class, NestedEntity.class);
+
         per = (PersistRepository<MainEntity, Integer>) db.getGlobal().getPersistRepository(MainEntity.class);
+        perNest = (PersistRepository<NestedEntity, Integer>) db.getGlobal().getPersistRepository(NestedEntity.class);
         crudEmbed = (CRUDRepository<EmbeddedEntity, ?>) db.getGlobal().getCrudRepository(EmbeddedEntity.class);
         assertNotNull(per);
     }
@@ -162,6 +166,34 @@ class PersistRepositoryImplTest {
         per.persist(main);
         main.setEmbeddedListDefault(List.of());
         assertEquals(per.load(main.getId()).orElseThrow(), main);
+    }
+
+    @Test
+    void persist_nested() {
+        NestedEntity child111 = NestedEntity.builder()
+                .name("Child111")
+                .build();
+        NestedEntity child11 = NestedEntity.builder()
+                .name("Child11")
+                .nestedChild(List.of(child111))
+                .build();
+        NestedEntity child1 = NestedEntity.builder()
+                .name("Child1")
+                .nestedChild(List.of(child11))
+                .build();
+        NestedEntity main = NestedEntity.builder()
+                .name("Parent")
+                .nestedChild(List.of(child1))
+                .build();
+
+        perNest.persist(main);
+        assertNotNull(main.getId());
+        assertNotNull(child1.getId());
+        assertNotNull(child11.getId());
+        assertNotNull(child111.getId());
+        perNest.getCRUD().getAll().forEach(System.out::println);
+        System.out.println(perNest.load(1).orElseThrow());
+
     }
 
 

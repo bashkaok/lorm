@@ -1,11 +1,11 @@
 package com.jisj.orm.repository;
 
 import com.jisj.orm.DAOException;
+import com.jisj.orm.DBDataSource;
 import com.jisj.orm.DBEnvironment;
 import org.junit.jupiter.api.*;
 import com.jisj.orm.testdata.EmbeddedEntity;
 import com.jisj.orm.testdata.MainEntity;
-import org.sqlite.javax.SQLiteConnectionPoolDataSource;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,13 +22,10 @@ public class CRUDRepositoryImplTest {
     @SuppressWarnings("unchecked")
     @BeforeAll
     public static void setUp() throws IOException {
-        InputStream ins = CRUDRepositoryImplTest.class.getClassLoader().getResourceAsStream("log.properties");
+        InputStream ins = CRUDRepositoryImplTest.class.getClassLoader().getResourceAsStream("log-test.properties");
         LogManager.getLogManager().readConfiguration(ins);
 
-        SQLiteConnectionPoolDataSource dataSource = new SQLiteConnectionPoolDataSource();
-        dataSource.setUrl("jdbc:sqlite:memory:&cache=shared");
-        db = new DBEnvironment(DBEnvironment.StandardConnection.MEMORY_CACHE);
-//        db = new DBEnvironment(DBEnvironment.StandardConnection.FILE_CURRENT_PATH);
+        db = DBEnvironment.getInstance(DBDataSource.newPooledDataSource(DBDataSource.StandardConnection.MEMORY_CACHE));
         db.setStartMode(DBEnvironment.StartMode.DROP_AND_CREATE);
         db.initializeEntities(MainEntity.class, EmbeddedEntity.class);
         crud = (CRUDRepositoryImpl<MainEntity, Integer>) db.getGlobal().getCrudRepository(MainEntity.class);
