@@ -35,6 +35,12 @@ public interface CRUDRepository<T, ID> extends Repository<T, ID> {
 
     void refresh(T entity) throws DAOException;
 
+    /**
+     * Finds the record by unique field
+     * @param columnName field column name
+     * @param value search value
+     * @return {@code Optional} entity object
+     */
     Optional<T> findByUnique(String columnName, Object value);
 
     Optional<T> findByUnique(String[] columnNames, Object... values);
