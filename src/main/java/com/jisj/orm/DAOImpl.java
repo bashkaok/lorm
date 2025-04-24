@@ -286,6 +286,7 @@ public class DAOImpl<T, ID> implements DAO<T, ID> {
 
     @SuppressWarnings("unchecked")
     @Override
+    @Deprecated(since = "use read(ID)")
     public int refresh(T entity) throws SQLException {
         return withConnection(connection ->
                 read(connection, (ID) profile.getIdValue(entity))

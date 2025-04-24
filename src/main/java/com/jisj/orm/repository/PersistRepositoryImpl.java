@@ -148,6 +148,7 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
     }
 
     @Override
+    @Deprecated
     public void refresh(T entity) throws DAOException {
         crud.refresh(entity);
         loadEmbedded(entity);

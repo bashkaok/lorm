@@ -32,6 +32,7 @@ public interface DAO<T, ID> {
      */
     int delete(ID id) throws SQLException;
     int deleteAll(String whereClause, Object...args) throws SQLException;
+    @Deprecated
     int refresh(T entity) throws SQLException;
     Optional<T> findByUnique(String columnName, Object value) throws SQLException;
     Optional<T> findByUnique(String[] columnNames, Object... values) throws SQLException;

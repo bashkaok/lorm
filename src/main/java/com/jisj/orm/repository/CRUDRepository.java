@@ -7,6 +7,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+/**
+ * CRUD methods
+ * @param <T> entity type
+ * @param <ID> unique identifier type
+ */
 public interface CRUDRepository<T, ID> extends Repository<T, ID> {
     void add(T entity) throws DAOException;
 
@@ -16,6 +21,10 @@ public interface CRUDRepository<T, ID> extends Repository<T, ID> {
 
     Optional<T> getByEntity(T entity);
 
+    /**
+     * Gets all records from the entity table
+     * @return stream of entities
+     */
     Stream<T> getAll();
 
     void update(T entity) throws DAOException;
@@ -33,6 +42,7 @@ public interface CRUDRepository<T, ID> extends Repository<T, ID> {
 
     void deleteAll(String whereClause, Object... args);
 
+    @Deprecated(since = "use get(ID)")
     void refresh(T entity) throws DAOException;
 
     /**

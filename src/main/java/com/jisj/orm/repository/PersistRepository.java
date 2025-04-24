@@ -8,6 +8,7 @@ import java.util.Optional;
 public interface PersistRepository<T,ID> extends Repository<T,ID> {
     /**
      * Saves entity and everything embedded entities
+     * @param entity for save entity object
      */
     void save(T entity) throws DAOException;
     Optional<T> load(ID id);
@@ -18,9 +19,11 @@ public interface PersistRepository<T,ID> extends Repository<T,ID> {
      */
     void update(T entity) throws DAOException;
     /**
-     * Refresh the entity from store
-     * @throws DAOException ErrorCode.RECORD_NOT_FOUND
+     * Refreshes the entity from store. Refreshes also an embedding (nested) entities
+     * @param entity The entity should have not-null ID
+     * @throws DAOException with ErrorCode.RECORD_NOT_FOUND
      */
+    @Deprecated(since = "use load(ID)")
     void refresh(T entity) throws DAOException;
 
     /**

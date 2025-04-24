@@ -9,15 +9,19 @@ import com.jisj.orm.repository.OrmRepoContainer;
 import com.jisj.orm.repository.PersistRepository;
 import com.jisj.orm.repository.RepositoryFactory;
 
+import java.io.Closeable;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+/**
+ * Entity manager
+ */
 @SuppressWarnings({"LombokSetterMayBeUsed", "LombokGetterMayBeUsed"})
 @Log
-public class DBEnvironment {
+public class DBEnvironment implements Closeable {
     private static DBEnvironment instance = null;
     private final DBDataSource dataSource;
     @Getter
@@ -36,32 +40,51 @@ public class DBEnvironment {
         this.dataSource = dataSource;
     }
 
+    /**
+     * Create new instance.
+     * @param dataSource {@code DBDataSource}
+     * @return new instance of {@code DBEnvironment}
+     * @throws IllegalStateException when the instance already exists
+     */
     public static DBEnvironment getInstance(DBDataSource dataSource) {
-        if (instance==null) {
+        if (instance == null) {
             instance = new DBEnvironment(dataSource);
             return instance;
         }
-        log.warning("Object already instanced: " + dataSource.getUrl());
-        return instance;
+        throw new IllegalStateException("Object already instanced: " + dataSource.getUrl());
     }
 
+    /**
+     * Return current instance
+     * @return current instance
+     * @throws IllegalStateException when the object is not instanced
+     */
     public static DBEnvironment getInstance() {
         if (instance == null)
             throw new IllegalStateException("DBEnvironment not instanced. Use getInstance(DBDatasource)");
         return instance;
     }
 
+    /**
+     * Closes current instance
+     */
+    @Override
     public void close() {
         log.info("DB instance was closed: " + dataSource.getUrl());
         instance = null;
     }
 
+    /**
+     * Returns current DataSource object
+     * @return current DataSource
+     */
     public DBDataSource getDataSource() {
         return dataSource;
     }
 
     /**
      * Sets start mode for the database
+     *
      * @param startMode value of {@link StartMode} Default: {@link StartMode#CREATE_IF_NOT_EXISTS CREATE_IF_NOT_EXISTS}
      */
     public void setStartMode(StartMode startMode) {
@@ -70,8 +93,9 @@ public class DBEnvironment {
 
     /**
      * Sets an action that will be performed after table creating, for example: to fill initial data
+     *
      * @param entityClass table entity class
-     * @param action action method or lambda
+     * @param action      action method or lambda
      */
     public void setOnCreateActions(Class<?> entityClass, Consumer<OrmRepoContainer> action) {
         onCreateActions.put(entityClass, action);
@@ -80,8 +104,9 @@ public class DBEnvironment {
     /**
      * Sets an action that will be performed after everything entities initialization.
      * Setter should be applied BEFORE {@code initializeEntities()} call
+     *
      * @param entityClass table entity class
-     * @param action action method
+     * @param action      action method
      */
     public void setOnIntegrityCheckActions(Class<?> entityClass, Consumer<OrmRepoContainer> action) {
         onIntegrityCheckActions.put(entityClass, action);
@@ -89,6 +114,7 @@ public class DBEnvironment {
 
     /**
      * Creates entities DAO and repositories
+     *
      * @param entities variants of entity classes
      * @see #initializeEntities(List)
      */
@@ -98,6 +124,7 @@ public class DBEnvironment {
 
     /**
      * Creates entities DAO and repositories
+     *
      * @param entities list of entity classes
      * @see #initializeEntities(Class[])
      */
@@ -124,7 +151,7 @@ public class DBEnvironment {
 
     private void initEnvironment() {
         global.getDaoSet().forEach(dao -> {
-            ((DAOImpl<?,?>)dao).setFormattedSQLStatement(formattedSQLStatement);
+            ((DAOImpl<?, ?>) dao).setFormattedSQLStatement(formattedSQLStatement);
             CRUDRepositoryImpl<?, ?> crud = (CRUDRepositoryImpl<?, ?>) RepositoryFactory.createCRUDRepository(dao);
             crud.setGlobal(global);
             global.add(crud);
@@ -133,7 +160,7 @@ public class DBEnvironment {
 
             if (startMode == StartMode.DROP_AND_CREATE) DBManager.dropTableIfExists(dao);
             if (startMode != StartMode.OPEN) {
-                if (!DBManager.tableExists((DAOImpl<?,?>) dao)) {
+                if (!DBManager.tableExists((DAOImpl<?, ?>) dao)) {
                     DBManager.createTableIfNotExists(dao);
                     onCreateTableAction(dao.getProfile().entityClass);
                 }
@@ -143,14 +170,14 @@ public class DBEnvironment {
 
     private void onCreateTableAction(Class<?> entityClass) {
         Consumer<OrmRepoContainer> action = onCreateActions.get(entityClass);
-        if (action!=null) {
+        if (action != null) {
             action.accept(global);
         }
     }
 
     private void performIntegrityCheck() {
         onIntegrityCheckActions.values()
-                .forEach(action-> action.accept(global));
+                .forEach(action -> action.accept(global));
     }
 
 
