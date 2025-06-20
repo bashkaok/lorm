@@ -56,11 +56,13 @@ public interface CRUDRepository<T, ID> extends Repository<T, ID> {
     Optional<T> findByUnique(String[] columnNames, Object... values);
 
     /**
-     * Gets the entity list from the table
+     * Gets the entity list from the table<br>
+     * {@code Usage: .findAll("id=? AND group=?", id, group)}
      * @param whereClause parameters of the WHERE clause of the query without "WHERE" word, ex: {@code "field1=? AND field2 IS NULL"}
      * @param args values of fields for search. Count of values should be equals '?' wildcard in WHERE clause.
      * @return {@code List<T>} of entities | empty {@code List}
      */
+    @SuppressWarnings("unused")
     List<T> findAll(String whereClause, Object... args);
 
     /**
