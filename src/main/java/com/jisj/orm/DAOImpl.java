@@ -98,6 +98,12 @@ public class DAOImpl<T, ID> implements DAO<T, ID> {
         }
     }
 
+    /**
+     * Performs the update query
+     * @param connection current connection
+     * @param sql SQL query
+     * @throws SQLException any SQL errors
+     */
     public void doUpdate(Connection connection, String sql) throws SQLException {
         if (sql == null || sql.isEmpty())
             throw new IllegalArgumentException("SQL statement is empty");
@@ -143,11 +149,11 @@ public class DAOImpl<T, ID> implements DAO<T, ID> {
     }
 
     @Override
-    public Optional<T> read(ID id) throws SQLException {
+    public T read(ID id) throws SQLException {
         return withConnection(connection -> read(connection, id));
     }
 
-    private Optional<T> read(Connection connection, ID id) {
+    private T read(Connection connection, ID id) {
         final String statement = """
                 SELECT * FROM %s
                 WHERE %s=?
@@ -155,11 +161,12 @@ public class DAOImpl<T, ID> implements DAO<T, ID> {
         return read(connection, statement, id);
     }
 
-    protected Optional<T> read(Connection connection, String sqlStatement, ID id) {
+    protected T read(Connection connection, String sqlStatement, ID id) {
         return doQuery(connection, sqlStatement, ps -> setPreparedStatementValue(ps, 1, id),
                 rsWrapper -> rsWrapper.stream()
                         .findFirst()
                         .map(ignore -> toEntity(rsWrapper))
+                        .orElse(null)
         );
     }
 
@@ -286,16 +293,14 @@ public class DAOImpl<T, ID> implements DAO<T, ID> {
 
     @SuppressWarnings("unchecked")
     @Override
-    @Deprecated(since = "use read(ID)")
-    public int refresh(T entity) throws SQLException {
-        return withConnection(connection ->
-                read(connection, (ID) profile.getIdValue(entity))
-                        .map(found -> {
-                            profile.copy(found, entity);
-                            return 1;
-                        })
-                        .orElse(0)
-        );
+    public void refresh(T entity) throws SQLException {
+        if (withConnection(connection -> {
+                    T found = read(connection, (ID) profile.getIdValue(entity));
+                    if (found != null) profile.copy(found, entity);
+                    return found;
+                }
+        ) == null)
+            throw new SQLException("Entity not found: " + entity, "02000");
     }
 
     @Override

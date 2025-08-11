@@ -91,8 +91,8 @@ class PersistRepositoryImplTest {
 
     @Test
     @Order(2)
-    void load() {
-        MainEntity main = per.load(1).orElseThrow();
+    void loadOptional() {
+        MainEntity main = per.loadOptional(1).orElseThrow();
         assertEquals("stringColumn", main.getStringField());
         assertEquals(1, main.getEmbeddedList().size());
         assertEquals(1, main.getEmbeddedListDefault().size());
@@ -108,8 +108,9 @@ class PersistRepositoryImplTest {
         assertEquals(1, main.getEmbeddedListDefault().size());
 
         main.setId(2);
-        assertEquals(DAOException.ErrorCode.RECORD_NOT_FOUND, assertThrowsExactly(DAOException.class, () -> per.refresh(main))
-                .getErrorCode());
+        assertEquals(DAOException.ErrorCode.RECORD_NOT_FOUND,
+                assertThrowsExactly(DAOException.class, () -> per.refresh(main))
+                        .getErrorCode());
     }
 
     @Test
@@ -133,12 +134,12 @@ class PersistRepositoryImplTest {
         assertThrowsExactly(IllegalArgumentException.class, () -> per.update(forTest));
 
         crudEmbed.add(e3);
-        main = per.load(1).orElseThrow();
+        main = per.loadOptional(1).orElseThrow();
         main.setEmbeddedList(new ArrayList<>(main.getEmbeddedList()));
         main.getEmbeddedList().add(e3);
         per.update(main);
 
-        main = per.load(main.getId()).orElseThrow();
+        main = per.loadOptional(main.getId()).orElseThrow();
         assertEquals(1, main.getEmbeddedList().stream()
                 .map(EmbeddedEntity::getId)
                 .filter(id -> Objects.equals(id, e3.getId()))
@@ -157,15 +158,15 @@ class PersistRepositoryImplTest {
                 .unAnnotatedField("forPersist")
                 .build();
         per.persist(main);
-        assertEquals(per.getCRUD().get(main.getId()).orElseThrow(), main);
+        assertEquals(per.getCRUD().getOptional(main.getId()).orElseThrow(), main);
 
         EmbeddedEntity e1 = EmbeddedEntity.builder().firstField("First embedded").build();
         EmbeddedEntity e2 = EmbeddedEntity.builder().firstField("Second embedded").build();
-        main.setEmbeddedList(List.of(e1,e2));
+        main.setEmbeddedList(List.of(e1, e2));
 
         per.persist(main);
         main.setEmbeddedListDefault(List.of());
-        assertEquals(per.load(main.getId()).orElseThrow(), main);
+        assertEquals(per.loadOptional(main.getId()).orElseThrow(), main);
     }
 
     @Test
@@ -192,7 +193,7 @@ class PersistRepositoryImplTest {
         assertNotNull(child11.getId());
         assertNotNull(child111.getId());
         perNest.getCRUD().getAll().forEach(System.out::println);
-        System.out.println(perNest.load(1).orElseThrow());
+        System.out.println(perNest.loadOptional(1).orElseThrow());
 
     }
 

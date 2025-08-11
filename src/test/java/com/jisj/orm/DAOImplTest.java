@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.LogManager;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -57,7 +56,7 @@ class DAOImplTest {
         assertSame(SQLiteErrorCode.SQLITE_CONSTRAINT_PRIMARYKEY, ((SQLiteException) assertThrows(SQLException.class, () -> dao.create(me))
                 .getCause()).getResultCode());
 
-        MainEntity copy = dao.read(me.getId()).orElseThrow();
+        MainEntity copy = dao.read(me.getId());
         copy.setId(null);
         assertSame(SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE, ((SQLiteException) assertThrows(SQLException.class, () -> dao.create(copy))
                 .getCause()).getResultCode());
@@ -68,7 +67,7 @@ class DAOImplTest {
     @Test
     @Order(2)
     void read() throws SQLException {
-        assertEquals(me, dao.read(me.getId()).orElseThrow());
+        assertEquals(me, dao.read(me.getId()));
         assertNull(me.getUnAnnotatedField());
     }
 
@@ -103,7 +102,7 @@ class DAOImplTest {
         upd.setFloatField(345.345F);
         upd.setBooleanField(true);
         assertEquals(1, dao.update(upd));
-        assertEquals(expected, dao.read(upd.getId()).orElseThrow());
+        assertEquals(expected, dao.read(upd.getId()));
 
         upd.setStringUniqueField("Unique");
 
@@ -118,8 +117,13 @@ class DAOImplTest {
     @Order(4)
     void refresh() throws SQLException {
         MainEntity refreshed = MainEntity.builder().id(me.getId()).build();
-        assertEquals(1, dao.refresh(refreshed));
+        assertDoesNotThrow(() -> dao.refresh(refreshed));
         assertEquals(me, refreshed);
+        refreshed.setId(-122);
+        assertEquals("02000",
+                assertThrowsExactly(SQLException.class, () -> dao.refresh(refreshed))
+                        .getSQLState());
+
     }
 
     @Test
@@ -127,7 +131,7 @@ class DAOImplTest {
     void findByUnique() throws SQLException {
         assertEquals(me, dao.findByUnique("UniqueField", "Unique").orElseThrow());
         assertTrue(assertThrowsExactly(IllegalArgumentException.class,
-                ()-> dao.findByUnique("booleanField", true))
+                () -> dao.findByUnique("booleanField", true))
                 .getMessage().contains("The column <booleanField> is not unique"));
 
         //for table constraint
@@ -136,7 +140,7 @@ class DAOImplTest {
 
         //any not table constraint fields
         assertTrue(assertThrowsExactly(IllegalArgumentException.class,
-                ()-> dao.findByUnique(new String[]{"doubleField", "booleanField"}, 123.123, true))
+                () -> dao.findByUnique(new String[]{"doubleField", "booleanField"}, 123.123, true))
                 .getMessage().contains("The columns <doubleField,booleanField> is not unique constraint"));
     }
 
@@ -175,7 +179,7 @@ class DAOImplTest {
     void delete() throws SQLException {
         int id = me.getId();
         assertEquals(1, dao.delete(id));
-        assertEquals(Optional.empty(), dao.read(id));
+        assertNull(dao.read(id));
     }
 
 
@@ -200,7 +204,7 @@ class DAOImplTest {
                 .stringDefaultField("default103")
                 .stringUniqueField("Unique103")
                 .build();
-        assertEquals(3, dao.createAll(List.of(e1,e2,e3)));
+        assertEquals(3, dao.createAll(List.of(e1, e2, e3)));
     }
 
     @Test
@@ -231,9 +235,9 @@ class DAOImplTest {
                 .doubleField(0.0)
                 .build();
 
-        assertEquals(3, dao.createAll(List.of(e1,e2,e3)));
-        assertEquals(e1, dao.read(101).orElseThrow());
-        assertEquals(List.of(e1,e2,e3), dao.readAll().toList());
+        assertEquals(3, dao.createAll(List.of(e1, e2, e3)));
+        assertEquals(e1, dao.read(101));
+        assertEquals(List.of(e1, e2, e3), dao.readAll().toList());
 
     }
 
@@ -256,11 +260,11 @@ class DAOImplTest {
                 .doubleField(0.0)
                 .build();
 
-        assertEquals(2, dao.createAll(List.of(e1,e2)));
+        assertEquals(2, dao.createAll(List.of(e1, e2)));
         assertEquals(1, dao.updateField(e1.getId(), "doubleField", 1.1));
-        assertEquals(1.1, dao.read(e1.getId()).orElseThrow().getDoubleField());
+        assertEquals(1.1, dao.read(e1.getId()).getDoubleField());
         dao.updateField(e1.getId(), "stringUniqueField", "Unique903");
-        assertEquals("Unique903", dao.read(e1.getId()).orElseThrow().getStringUniqueField());
+        assertEquals("Unique903", dao.read(e1.getId()).getStringUniqueField());
         assertEquals(SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE, ((SQLiteException) assertThrowsExactly(SQLException.class, () -> dao.updateField(e1.getId(), "stringUniqueField", "Unique902"))
                 .getCause()).getResultCode());
         //wrong id
@@ -307,15 +311,15 @@ class DAOImplTest {
         dao.create(me);
         DAOImpl<JoinTableEntityIntID, Integer> joinDao = (DAOImpl<JoinTableEntityIntID, Integer>) db.getGlobal().getDao("join_MainTable_with_EmbeddedTable");
         assertEquals(SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY, ((SQLiteException) assertThrowsExactly(SQLException.class,
-                        ()-> joinDao.create(new JoinTableEntityIntID(99999, 9999)))
+                () -> joinDao.create(new JoinTableEntityIntID(99999, 9999)))
                 .getCause()).getResultCode());
         assertEquals(SQLiteErrorCode.SQLITE_CONSTRAINT_FOREIGNKEY, ((SQLiteException) assertThrowsExactly(SQLException.class,
-                ()-> joinDao.create(new JoinTableEntityIntID(me.getId(), 9999)))
+                () -> joinDao.create(new JoinTableEntityIntID(me.getId(), 9999)))
                 .getCause()).getResultCode());
 //        DAOImpl<EmbeddedEntity, Integer> embedDao = (DAOImpl<EmbeddedEntity, Integer>) db.getGlobal().getDao(EmbeddedEntity.class);
         DAO<EmbeddedEntity, Integer> embedDao = (DAO<EmbeddedEntity, Integer>) db.getGlobal().getDao(EmbeddedEntity.class);
         EmbeddedEntity embed = EmbeddedEntity.builder().firstField("Wow").build();
-        assertEquals(1,embedDao.create(embed));
+        assertEquals(1, embedDao.create(embed));
         joinDao.create(new JoinTableEntityIntID(me.getId(), embed.getId()));
         assertEquals(1, joinDao.findAll("OWNER_ID=?", me.getId()).size());
         assertEquals(1, embedDao.delete(embed.getId()));

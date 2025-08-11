@@ -19,7 +19,7 @@ import static com.jisj.orm.DAOException.onSQLError;
 @Getter
 @Setter
 @Log
-public class CRUDRepositoryImpl<T,ID> implements CRUDRepository<T, ID> {
+public class CRUDRepositoryImpl<T, ID> implements CRUDRepository<T, ID> {
     protected final DAO<T, ID> dao;
     protected OrmRepoContainer global = null;
 
@@ -46,12 +46,17 @@ public class CRUDRepositoryImpl<T,ID> implements CRUDRepository<T, ID> {
     }
 
     @Override
-    public Optional<T> get(ID id) {
+    public T get(ID id) {
         try {
             return dao.read(id);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public Optional<T> getOptional(ID id) {
+        return Optional.ofNullable(get(id));
     }
 
     @Override
@@ -92,7 +97,7 @@ public class CRUDRepositoryImpl<T,ID> implements CRUDRepository<T, ID> {
             add(entity);
             return;
         }
-        if (get((ID) dao.getProfile().getIdValue(entity)).isEmpty()) add(entity);
+        if (getOptional((ID) dao.getProfile().getIdValue(entity)).isEmpty()) add(entity);
         else update(entity);
     }
 
@@ -101,7 +106,7 @@ public class CRUDRepositoryImpl<T,ID> implements CRUDRepository<T, ID> {
     public void merge(T entity) {
         if (dao.getProfile().getIdValue(entity) != null) {
             try {
-                Optional<T> found = get((ID) dao.getProfile().getIdValue(entity));
+                Optional<T> found = getOptional((ID) dao.getProfile().getIdValue(entity));
                 if (found.isPresent()) {
                     dao.getProfile().enrich(entity, found.get()); //TODO replace on UPDATE of not-null fields
                     update(entity);
@@ -166,9 +171,10 @@ public class CRUDRepositoryImpl<T,ID> implements CRUDRepository<T, ID> {
     @Override
     public void refresh(T entity) throws DAOException {
         try {
-            if (dao.refresh(entity) == 0)
-                throw new DAOException("Record not found", null, DAOException.ErrorCode.RECORD_NOT_FOUND, entity);
+            dao.refresh(entity);
         } catch (SQLException e) {
+            if (e.getSQLState().equals("02000"))
+                throw new DAOException("Entity not found", e, DAOException.ErrorCode.RECORD_NOT_FOUND, entity);
             throw onSQLError(e, null, log);
         }
     }
@@ -203,7 +209,7 @@ public class CRUDRepositoryImpl<T,ID> implements CRUDRepository<T, ID> {
     @Override
     public List<T> query(String sqlQuery, Object... args) {
         try {
-            return dao.query(sqlQuery,args);
+            return dao.query(sqlQuery, args);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

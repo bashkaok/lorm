@@ -17,7 +17,14 @@ public interface CRUDRepository<T, ID> extends Repository<T, ID> {
 
     void addAll(List<T> entity) throws DAOException;
 
-    Optional<T> get(ID id);
+    /**
+     * Gives the entity by ID
+     * @param id entity ID
+     * @return entity or {@code null}
+     */
+    T get(ID id);
+
+    Optional<T> getOptional(ID id);
 
     Optional<T> getByEntity(T entity);
 
@@ -42,7 +49,6 @@ public interface CRUDRepository<T, ID> extends Repository<T, ID> {
 
     void deleteAll(String whereClause, Object... args);
 
-    @Deprecated(since = "use get(ID)")
     void refresh(T entity) throws DAOException;
 
     /**

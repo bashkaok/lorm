@@ -86,7 +86,7 @@ public class CRUDRepositoryImplTest {
         @Test
         @Order(3)
         void get_by_ID() {
-            assertEquals(expected, crud.get(expected.getId()).orElseThrow());
+            assertEquals(expected, crud.getOptional(expected.getId()).orElseThrow());
         }
 
         @Test
@@ -120,7 +120,7 @@ public class CRUDRepositoryImplTest {
             e1.setUnAnnotatedField("unAnnotated");
             crud.update(e1);
 
-            assertEquals(e1, crud.get(e1.getId()).orElseThrow());
+            assertEquals(e1, crud.getOptional(e1.getId()).orElseThrow());
         }
 
         @Test
@@ -140,7 +140,7 @@ public class CRUDRepositoryImplTest {
             e1.setStringDefaultField("default");
             e1.setUnAnnotatedField("unAnnotated");
             crud.addOrUpdate(e1);
-            assertEquals(e1, crud.get(e1.getId()).orElseThrow());
+            assertEquals(e1, crud.getOptional(e1.getId()).orElseThrow());
 
             MainEntity e2 = MainEntity.builder()
                     .id(e1.getId())
@@ -172,8 +172,8 @@ public class CRUDRepositoryImplTest {
                     .unAnnotatedField("UnAnnotated")
                     .build();
             crud.merge(merge);
-            assertEquals(merge.getUnAnnotatedField(), crud.get(entity.getId()).orElseThrow().getUnAnnotatedField());
-            assertEquals(entity.getStringDefaultField(), crud.get(entity.getId()).orElseThrow().getStringDefaultField()); //TODO incorrect default field from builder
+            assertEquals(merge.getUnAnnotatedField(), crud.getOptional(entity.getId()).orElseThrow().getUnAnnotatedField());
+            assertEquals(entity.getStringDefaultField(), crud.getOptional(entity.getId()).orElseThrow().getStringDefaultField()); //TODO incorrect default field from builder
 
         }
     }

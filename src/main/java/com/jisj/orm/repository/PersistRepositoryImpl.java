@@ -9,7 +9,8 @@ import java.util.*;
 
 /**
  * Implementation of {@code PersistRepository<T, ID>}
- * @param <T> entity type
+ *
+ * @param <T>  entity type
  * @param <ID> entity identifier
  */
 @SuppressWarnings("LombokGetterMayBeUsed")
@@ -58,6 +59,19 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
         });
     }
 
+    @Override
+    public T load(ID id) {
+        T entity = crud.get(id);
+        if (entity == null) return null;
+        loadEmbedded(entity);
+        return entity;
+    }
+
+    @Override
+    public Optional<T> loadOptional(ID id) {
+        return Optional.of(load(id));
+    }
+
     @SuppressWarnings("unchecked")
     private void saveEmbeddedEntity(CRUDRepository<?, ?> crud, Object entity) {
         try {
@@ -88,16 +102,6 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
         }
     }
 
-    @Override
-    public Optional<T> load(ID id) {
-        T entity;
-        Optional<T> result = crud.get(id);
-        if (result.isEmpty()) return result;
-        entity = result.get();
-        loadEmbedded(entity);
-        return Optional.of(entity);
-    }
-
     @SuppressWarnings("unchecked")
     private void loadEmbedded(T entity) {
         dao.getProfile().getManyToManyColumns().forEach(column -> {
@@ -107,7 +111,7 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
                 try {
                     List<?> joined = joinCrud.findAllEmbedded(dao.getProfile().getIdValue(entity));
                     List<?> embedded = joined.stream()
-                            .map(joinEntity -> embedCrud.get(((JoinTableEntity<?>) joinEntity).getEmbeddedId()))
+                            .map(joinEntity -> embedCrud.getOptional(((JoinTableEntity<?>) joinEntity).getEmbeddedId()))
                             .filter(Optional::isPresent)
                             .map(Optional::get)
                             .peek(e -> {
@@ -173,7 +177,8 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
 
             ((Collection<?>) column.getValue(entity))
                     .forEach(embeddedEntity -> {
-                        if (embeddedEntity.getClass() == entity.getClass()) persist((T) embeddedEntity); //for nested entities
+                        if (embeddedEntity.getClass() == entity.getClass())
+                            persist((T) embeddedEntity); //for nested entities
                         persistEmbeddedEntity(column, embedCrud, embeddedEntity);
                         JoinTableEntity<?> joinTableEntity = createJoinTableEntity(
                                 entity,
@@ -202,7 +207,7 @@ public class PersistRepositoryImpl<T, ID> implements PersistRepository<T, ID> {
             try {
                 embedCrud.refresh(embeddedEntity);
             } catch (DAOException e) {
-                throw new RuntimeException(e);
+                throw new RuntimeException(e.getCauseEntity().toString(), e);
             }
         }
     }

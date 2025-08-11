@@ -16,7 +16,13 @@ public interface DAO<T, ID> {
     int create(T entity) throws SQLException;
     int createAll(List<T> entityList) throws SQLException;
 
-    Optional<T> read(ID id) throws SQLException;
+    /**
+     * Read the entity by ID
+     * @param id entity ID
+     * @return entity or {@code null}
+     * @throws SQLException DB reading error
+     */
+    T read(ID id) throws SQLException;
     Optional<T> readByEntity(T entity) throws SQLException;
     Stream<T> readAll() throws SQLException;
     /**
@@ -32,8 +38,13 @@ public interface DAO<T, ID> {
      */
     int delete(ID id) throws SQLException;
     int deleteAll(String whereClause, Object...args) throws SQLException;
-    @Deprecated
-    int refresh(T entity) throws SQLException;
+
+    /**
+     * Fills the specified entity from database
+     * @param entity entity for refreshing
+     * @throws SQLException entity ID not found
+     */
+    void refresh(T entity) throws SQLException;
     Optional<T> findByUnique(String columnName, Object value) throws SQLException;
     Optional<T> findByUnique(String[] columnNames, Object... values) throws SQLException;
     List<T> findAll(String whereClause, Object...args) throws SQLException;
